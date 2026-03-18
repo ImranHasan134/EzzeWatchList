@@ -1,0 +1,50 @@
+name: ezze_watchlist
+description: A personal movie & series watchlist tracker app.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Local database
+  sqflite: ^2.3.2
+  path: ^1.9.0
+
+  # State management
+  provider: ^6.1.2
+
+  # Image picker
+  image_picker: ^1.0.7
+
+  # Shared preferences (dark mode)
+  shared_preferences: ^2.2.3
+
+  # PDF export
+  pdf: ^3.10.8
+
+  # Path provider for permanent image storage
+  path_provider: ^2.1.2
+
+  # File picker for import
+  file_picker: ^8.1.7
+
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_launcher_icons: ^0.14.4   # <-- UPDATED
+
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+
+flutter:
+  uses-material-design: true
