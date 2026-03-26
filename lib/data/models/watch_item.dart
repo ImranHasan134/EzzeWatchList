@@ -1,5 +1,3 @@
-// lib/data/models/watch_item.dart
-
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
@@ -17,6 +15,8 @@ class WatchItem {
   final int? seasons;
   final int? episodes;
   final int createdAt;
+  final String? hindiAvailable; // "Yes" / "No"
+  final String? watchSource;    // MLWBD / MovieBox / HiAnime
 
   const WatchItem({
     this.id,
@@ -31,6 +31,8 @@ class WatchItem {
     this.seasons,
     this.episodes,
     required this.createdAt,
+    this.hindiAvailable,
+    this.watchSource,
   });
 
   Map<String, dynamic> toMap() {
@@ -47,6 +49,8 @@ class WatchItem {
       'seasons': seasons,
       'episodes': episodes,
       'createdAt': createdAt,
+      'hindiAvailable': hindiAvailable ?? 'No',
+      'watchSource': watchSource ?? '',
     };
   }
 
@@ -64,6 +68,8 @@ class WatchItem {
       seasons: map['seasons'] as int?,
       episodes: map['episodes'] as int?,
       createdAt: map['createdAt'] as int,
+      hindiAvailable: map['hindiAvailable'] as String?,
+      watchSource: map['watchSource'] as String?,
     );
   }
 
@@ -80,6 +86,8 @@ class WatchItem {
     int? seasons,
     int? episodes,
     int? createdAt,
+    String? hindiAvailable,
+    String? watchSource,
   }) {
     return WatchItem(
       id: id ?? this.id,
@@ -94,10 +102,13 @@ class WatchItem {
       seasons: seasons ?? this.seasons,
       episodes: episodes ?? this.episodes,
       createdAt: createdAt ?? this.createdAt,
+      hindiAvailable: hindiAvailable ?? this.hindiAvailable,
+      watchSource: watchSource ?? this.watchSource,
     );
   }
 }
 
+// ── Status / Category / Genre constants ─────────────────────────────
 class WatchStatus {
   static const String watched  = 'Watched';
   static const String watching = 'Watching';

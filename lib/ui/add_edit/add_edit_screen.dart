@@ -32,6 +32,10 @@ class _AddEditScreenState extends State<AddEditScreen> {
   String? _posterPath;
   final Set<String> _selectedGenres = {};
 
+  // 🆕 New UI fields
+  String _hindiAvailable = 'No';
+  String? _watchSource;
+
   bool _isLoading = false;
   WatchItem? _editingItem;
 
@@ -39,6 +43,14 @@ class _AddEditScreenState extends State<AddEditScreen> {
   void initState() {
     super.initState();
     if (widget.itemId != null) _loadItem();
+  }
+
+  // 🆕 Dynamic options
+  List<String> get _watchOptions {
+    if (_category == Category.anime) {
+      return ['MLWBD', 'MovieBox', 'HiAnime'];
+    }
+    return ['MLWBD', 'MovieBox'];
   }
 
   Future<void> _loadItem() async {
@@ -91,14 +103,22 @@ class _AddEditScreenState extends State<AddEditScreen> {
       seasons: _seasonsCtrl.text.isNotEmpty ? int.tryParse(_seasonsCtrl.text) : null,
       episodes: _episodesCtrl.text.isNotEmpty ? int.tryParse(_episodesCtrl.text) : null,
       createdAt: _editingItem?.createdAt ?? DateTime.now().millisecondsSinceEpoch,
+
+      // ── ADD NEW FIELDS ─────────────────────────────
+      hindiAvailable: _hindiAvailable,
+      watchSource: _watchSource ?? _watchOptions.first,
     );
 
     final provider = context.read<WatchProvider>();
-    if (_editingItem == null) provider.addItem(item);
-    else provider.updateItem(item);
+    if (_editingItem == null) {
+      provider.addItem(item);
+    } else {
+      provider.updateItem(item);
+    }
 
     Navigator.pop(context);
   }
+
 
   bool get _showSeasonEp => _category == Category.webSeries || _category == Category.anime;
 
@@ -179,26 +199,74 @@ class _AddEditScreenState extends State<AddEditScreen> {
             children: [
               _buildPosterSection(isDark),
               const SizedBox(height: 16),
+
               _buildTextField(_titleCtrl, 'Title *', isDark,
                   validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null),
+
               const SizedBox(height: 12),
-              _buildDropdown('Category', Category.all, _category, (v) => setState(() => _category = v!), isDark),
+
+              _buildDropdown(
+                'Category',
+                Category.all,
+                _category,
+                    (v) => setState(() {
+                  _category = v!;
+                  _watchSource = null;
+                }),
+                isDark,
+              ),
+
               const SizedBox(height: 12),
-              _buildDropdown('Status', WatchStatus.all, _status, (v) => setState(() => _status = v!), isDark),
+
+              _buildDropdown('Status', WatchStatus.all, _status,
+                      (v) => setState(() => _status = v!), isDark),
+
               const SizedBox(height: 12),
+
               _buildTextField(_yearCtrl, 'Release Year', isDark,
                   keyboardType: TextInputType.number, maxLength: 4),
+
               const SizedBox(height: 12),
+
+              // 🆕 Hindi Available Dropdown
+              _buildDropdown(
+                'Hindi Available?',
+                ['Yes', 'No'],
+                _hindiAvailable,
+                    (v) => setState(() => _hindiAvailable = v!),
+                isDark,
+              ),
+
+              const SizedBox(height: 12),
+
+              // 🆕 Where to Watch
+              _buildDropdown(
+                'Where to Watch',
+                _watchOptions,
+                _watchSource ?? _watchOptions.first,
+                    (v) => setState(() => _watchSource = v),
+                isDark,
+              ),
+
+              const SizedBox(height: 12),
+
               _buildMultiSelectDropdown('Genres', Genre.all, _selectedGenres, isDark),
+
               const SizedBox(height: 12),
+
               _buildTextField(_descCtrl, 'Description', isDark, maxLines: 3),
+
               const SizedBox(height: 12),
+
               _buildRatingSlider(isDark),
+
               if (_showSeasonEp) ...[
                 const SizedBox(height: 12),
                 _buildSeasonEpisodeRow(isDark),
               ],
+
               const SizedBox(height: 24),
+
               SizedBox(
                 width: double.infinity,
                 child: DecoratedBox(
@@ -218,6 +286,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 24),
             ],
           ),
@@ -225,6 +294,9 @@ class _AddEditScreenState extends State<AddEditScreen> {
       ),
     );
   }
+
+  // KEEP ALL YOUR EXISTING HELPER METHODS SAME
+
 
   Widget _buildPosterSection(bool isDark) {
     return Center(

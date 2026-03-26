@@ -5,16 +5,21 @@ import 'package:path/path.dart' as p;
 import '../models/watch_item.dart';
 
 class DbHelper {
+  // ── Singleton ──────────────────────────────────────────────
   static final DbHelper _instance = DbHelper._internal();
   factory DbHelper() => _instance;
   DbHelper._internal();
 
+  // ── Database ───────────────────────────────────────────────
   static Database? _db;
 
   Future<Database> get database async {
     _db ??= await _initDb();
     return _db!;
   }
+
+  // ── Table name ─────────────────────────────────────────────
+  static const String tableWatch = 'watch_items';
 
   Future<Database> _initDb() async {
     final dbPath = await getDatabasesPath();
@@ -25,36 +30,42 @@ class DbHelper {
       version: 1,
       onCreate: (db, version) async {
         await db.execute('''
-          CREATE TABLE watch_items (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            title      TEXT    NOT NULL,
-            category   TEXT    NOT NULL,
-            genres     TEXT    NOT NULL,
-            releaseYear TEXT   NOT NULL,
-            description TEXT   NOT NULL,
-            rating     REAL    NOT NULL,
-            status     TEXT    NOT NULL,
+          CREATE TABLE $tableWatch(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            category TEXT,
+            genres TEXT,
+            releaseYear TEXT,
+            description TEXT,
+            rating REAL,
+            status TEXT,
             posterPath TEXT,
-            seasons    INTEGER,
-            episodes   INTEGER,
-            createdAt  INTEGER NOT NULL
+            seasons INTEGER,
+            episodes INTEGER,
+            createdAt INTEGER,
+            hindiAvailable TEXT DEFAULT 'No',
+            watchSource TEXT DEFAULT ''
           )
         ''');
       },
     );
   }
 
-  // ── CRUD ────────────────────────────────────────────────────────────────
+  // ── CRUD METHODS ───────────────────────────────────────────
 
   Future<int> insertItem(WatchItem item) async {
     final db = await database;
-    return db.insert('watch_items', item.toMap());
+    return db.insert(
+      tableWatch,
+      item.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<int> updateItem(WatchItem item) async {
     final db = await database;
     return db.update(
-      'watch_items',
+      tableWatch,
       item.toMap(),
       where: 'id = ?',
       whereArgs: [item.id],
@@ -63,21 +74,19 @@ class DbHelper {
 
   Future<int> deleteItem(int id) async {
     final db = await database;
-    return db.delete('watch_items', where: 'id = ?', whereArgs: [id]);
+    return db.delete(tableWatch, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<WatchItem?> getItemById(int id) async {
     final db = await database;
-    final maps = await db.query('watch_items', where: 'id = ?', whereArgs: [id]);
+    final maps = await db.query(tableWatch, where: 'id = ?', whereArgs: [id]);
     if (maps.isEmpty) return null;
     return WatchItem.fromMap(maps.first);
   }
 
-  // ── Queries ─────────────────────────────────────────────────────────────
-
   Future<List<WatchItem>> getAllItems() async {
     final db = await database;
-    final maps = await db.query('watch_items', orderBy: 'createdAt DESC');
+    final maps = await db.query(tableWatch, orderBy: 'createdAt DESC');
     return maps.map(WatchItem.fromMap).toList();
   }
 
@@ -85,23 +94,21 @@ class DbHelper {
     final db = await database;
     final batch = db.batch();
     for (final item in items) {
-      // Insert without id so SQLite auto-assigns new ones
       final map = item.toMap()..remove('id');
-      batch.insert('watch_items', map,
-          conflictAlgorithm: ConflictAlgorithm.replace);
+      batch.insert(tableWatch, map, conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
   }
 
   Future<void> clearAllItems() async {
     final db = await database;
-    await db.delete('watch_items');
+    await db.delete(tableWatch);
   }
 
   Future<List<WatchItem>> getItemsByStatus(String status) async {
     final db = await database;
     final maps = await db.query(
-      'watch_items',
+      tableWatch,
       where: 'status = ?',
       whereArgs: [status],
       orderBy: 'createdAt DESC',
@@ -133,7 +140,7 @@ class DbHelper {
 
     final where = conditions.isEmpty ? null : conditions.join(' AND ');
     final maps = await db.query(
-      'watch_items',
+      tableWatch,
       where: where,
       whereArgs: args.isEmpty ? null : args,
       orderBy: 'createdAt DESC',
@@ -141,26 +148,26 @@ class DbHelper {
     return maps.map(WatchItem.fromMap).toList();
   }
 
-  // ── Stats ────────────────────────────────────────────────────────────────
+  // ── STATS ────────────────────────────────────────────────
 
   Future<int> getWatchedCount() async {
     final db = await database;
     final result = await db.rawQuery(
-      "SELECT COUNT(*) as cnt FROM watch_items WHERE status = 'Watched'",
+      "SELECT COUNT(*) as cnt FROM $tableWatch WHERE status = 'Watched'",
     );
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
   Future<int> getTotalCount() async {
     final db = await database;
-    final result = await db.rawQuery("SELECT COUNT(*) as cnt FROM watch_items");
+    final result = await db.rawQuery("SELECT COUNT(*) as cnt FROM $tableWatch");
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
   Future<double?> getAverageRating() async {
     final db = await database;
     final result = await db.rawQuery(
-      "SELECT AVG(rating) as avg FROM watch_items WHERE status = 'Watched'",
+      "SELECT AVG(rating) as avg FROM $tableWatch WHERE status = 'Watched'",
     );
     if (result.isEmpty || result.first['avg'] == null) return null;
     return (result.first['avg'] as num).toDouble();
@@ -169,7 +176,7 @@ class DbHelper {
   Future<List<String>> getAllWatchedGenres() async {
     final db = await database;
     final maps = await db.query(
-      'watch_items',
+      tableWatch,
       columns: ['genres'],
       where: "status = 'Watched'",
     );

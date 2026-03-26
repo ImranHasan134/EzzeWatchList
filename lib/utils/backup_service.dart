@@ -69,7 +69,7 @@ class BackupService {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                'EzzeWatchList — My Watchlist',
+                'EzzeWatchList : My Watchlist',
                 style: pw.TextStyle(
                     fontSize: 22, fontWeight: pw.FontWeight.bold),
               ),
@@ -273,37 +273,33 @@ class BackupService {
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
       columnWidths: {
-        0: const pw.FlexColumnWidth(3),
-        1: const pw.FlexColumnWidth(1.5),
-        2: const pw.FlexColumnWidth(2),
-        3: const pw.FlexColumnWidth(0.8),
-        4: const pw.FlexColumnWidth(0.8),
+        0: const pw.FlexColumnWidth(4), // Title
+        1: const pw.FlexColumnWidth(2), // Category
+        2: const pw.FlexColumnWidth(1.5), // Hindi
+        3: const pw.FlexColumnWidth(2), // Watch On
       },
       children: [
+        // Header row
         pw.TableRow(
           decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-          children: ['Title', 'Category', 'Genres', 'Year', 'Rating']
+          children: ['Title', 'Category', 'Hindi', 'Watch On']
               .map((h) => pw.Padding(
             padding: const pw.EdgeInsets.all(6),
-            child: pw.Text(h,
-                style: pw.TextStyle(
-                    fontSize: 9,
-                    fontWeight: pw.FontWeight.bold)),
+            child: pw.Text(
+              h,
+              style: pw.TextStyle(
+                  fontSize: 10, fontWeight: pw.FontWeight.bold),
+            ),
           ))
               .toList(),
         ),
+        // Data rows
         ...items.map((item) => pw.TableRow(
           children: [
             _pdfCell(item.title),
             _pdfCell(item.category),
-            _pdfCell(item.genres.isNotEmpty
-                ? item.genres.replaceAll(',', ', ')
-                : '-'),
-            _pdfCell(
-                item.releaseYear.isNotEmpty ? item.releaseYear : '-'),
-            _pdfCell(item.rating > 0
-                ? '${item.rating.toStringAsFixed(1)}/10'
-                : '-'),
+            _pdfCell(item.hindiAvailable ?? 'No'),
+            _pdfCell(item.watchSource ?? '-'),
           ],
         )),
       ],
@@ -312,8 +308,9 @@ class BackupService {
 
   pw.Widget _pdfCell(String text) => pw.Padding(
     padding: const pw.EdgeInsets.all(5),
-    child: pw.Text(text, style: const pw.TextStyle(fontSize: 8)),
+    child: pw.Text(text, style: const pw.TextStyle(fontSize: 9)),
   );
+
 
   pw.Widget _pdfStatBox(String label, String value, PdfColor color) =>
       pw.Column(
