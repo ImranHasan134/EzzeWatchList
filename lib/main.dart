@@ -1,7 +1,9 @@
 // lib/main.dart
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'data/database/watch_provider.dart';
 import 'utils/app_theme.dart';
 import 'utils/theme_provider.dart';
@@ -9,6 +11,15 @@ import 'ui/main_scaffold.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 🆕 Load the secret keys
+  await dotenv.load(fileName: ".env");
+
+  // 🆕 Initialize Supabase securely
+  await Supabase.initialize(
+    url: dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+  );
 
   // Load saved theme preference before app starts
   final themeProvider = ThemeProvider();

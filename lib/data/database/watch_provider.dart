@@ -3,6 +3,7 @@
 import 'package:flutter/foundation.dart';
 import '../database/db_helper.dart';
 import '../models/watch_item.dart';
+import '../network/sync_service.dart';
 
 // Single ChangeNotifier that drives the whole app.
 // Future upgrade: swap DbHelper calls with Supabase calls here.
@@ -69,22 +70,28 @@ class WatchProvider extends ChangeNotifier {
     _topGenre = _getMostFrequentGenre(genresList);
   }
 
-  // ── CRUD ─────────────────────────────────────────────────────────────────
+ // ── CRUD ─────────────────────────────────────────────────────────────────
   Future<void> addItem(WatchItem item) async {
     await _db.insertItem(item);
+    await SyncService.pushItem(item); // 🆕 Push to cloud
     await loadAll();
   }
 
   Future<void> updateItem(WatchItem item) async {
     await _db.updateItem(item);
+    await SyncService.pushItem(item); // 🆕 Update in cloud
     await loadAll();
     await refreshSearch();
   }
 
   Future<void> deleteItem(int id) async {
-    await _db.deleteItem(id);
-    await loadAll();
-    await refreshSearch();
+    final item = await _db.getItemById(id);
+    if (item != null) {
+      await _db.deleteItem(id);
+      await SyncService.deleteItem(item.createdAt); // 🆕 Delete from cloud
+      await loadAll();
+      await refreshSearch();
+    }
   }
 
   Future<WatchItem?> getItemById(int id) => _db.getItemById(id);

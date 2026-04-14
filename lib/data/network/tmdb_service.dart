@@ -1,10 +1,11 @@
 // lib/data/network/tmdb_service.dart
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class TmdbService {
-  static const String _apiKey = 'fcf557a1948957fbae1d97278970b79b';
+  static final String _apiKey = dotenv.env['TMDB_API_KEY'] ?? '';
   static const String _baseUrl = 'https://api.themoviedb.org/3';
   static const String _imageBaseUrl = 'https://image.tmdb.org/t/p/w500';
 

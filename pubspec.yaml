@@ -64,7 +64,7 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
   assets:
-    - .env
     - assets/platform/logo/mlwbd.png
     - assets/platform/logo/moviebox.png
     - assets/platform/logo/hianime.png
+    - .env
