@@ -218,39 +218,6 @@ class _HomeScreenState extends State<HomeScreen>
             _WatchListTab(status: WatchStatus.planned),
           ],
         ),
-        floatingActionButton: GestureDetector(
-          onTap: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AddEditScreen()),
-            );
-            if (context.mounted) context.read<WatchProvider>().loadAll();
-          },
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFFFD700).withOpacity(0.45),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.add_rounded,
-              color: Color(0xFF1A1A1A),
-              size: 26,
-            ),
-          ),
-        ),
       ),
     );
   }

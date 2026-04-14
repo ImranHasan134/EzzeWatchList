@@ -18,6 +18,8 @@ class WatchProvider extends ChangeNotifier {
   List<WatchItem> get watched  => _watched;
   List<WatchItem> get watching => _watching;
   List<WatchItem> get planned  => _planned;
+  List<WatchItem> get items => [..._watched, ..._watching, ..._planned];
+
 
   // ── Search & Filter ──────────────────────────────────────────────────────
   List<WatchItem> _searchResults = [];

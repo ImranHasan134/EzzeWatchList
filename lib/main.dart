@@ -8,6 +8,7 @@ import 'data/database/watch_provider.dart';
 import 'utils/app_theme.dart';
 import 'utils/theme_provider.dart';
 import 'ui/main_scaffold.dart';
+import 'ui/auth/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,7 +50,26 @@ class EzzeApp extends StatelessWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: themeProvider.themeMode,
-      home: const MainScaffold(),
+      // 🆕 THE AUTH GATE
+      home: StreamBuilder<AuthState>(
+        stream: Supabase.instance.client.auth.onAuthStateChange,
+        builder: (context, snapshot) {
+          // If the stream is still loading, show a blank screen
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          }
+
+          final session = snapshot.data?.session;
+
+          if (session != null) {
+            // User is logged in! Send them to the main app
+            return const MainScaffold();
+          } else {
+            // User is NOT logged in! Send them to the Login Screen
+            return const LoginScreen();
+          }
+        },
+      ),
     );
   }
 }

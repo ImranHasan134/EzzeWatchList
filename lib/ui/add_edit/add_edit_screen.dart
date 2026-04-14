@@ -260,6 +260,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: surfaceColor,
