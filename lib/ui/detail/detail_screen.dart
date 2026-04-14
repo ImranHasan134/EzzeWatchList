@@ -27,9 +27,39 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   Future<void> _loadItem() async {
-    final item =
-    await context.read<WatchProvider>().getItemById(widget.itemId);
+    final item = await context.read<WatchProvider>().getItemById(widget.itemId);
     if (mounted) setState(() => _item = item);
+  }
+
+  // 🆕 Logic to instantly update status from the Detail Screen
+  Future<void> _changeStatus(String newStatus) async {
+    if (_item == null) return;
+
+    final updatedItem = WatchItem(
+      id: _item!.id,
+      title: _item!.title,
+      category: _item!.category,
+      genres: _item!.genres,
+      releaseYear: _item!.releaseYear,
+      description: _item!.description,
+      rating: _item!.rating,
+      status: newStatus,
+      posterPath: _item!.posterPath,
+      seasons: _item!.seasons,
+      episodes: _item!.episodes,
+      createdAt: _item!.createdAt,
+      hindiAvailable: _item!.hindiAvailable,
+      watchSource: _item!.watchSource,
+    );
+
+    await context.read<WatchProvider>().updateItem(updatedItem);
+    await _loadItem(); // Refresh UI to show new status
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Status updated to $newStatus!'), backgroundColor: Colors.green),
+      );
+    }
   }
 
   Future<void> _delete() async {
@@ -39,12 +69,8 @@ class _DetailScreenState extends State<DetailScreen> {
         title: const Text('Delete'),
         content: Text('Delete "${_item!.title}"?'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
         ],
       ),
     );
@@ -57,16 +83,12 @@ class _DetailScreenState extends State<DetailScreen> {
   @override
   Widget build(BuildContext context) {
     if (_item == null) {
-      return const Scaffold(
-          body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final item = _item!;
-    final showSeasonEp =
-        item.category == Category.webSeries || item.category == Category.animeSeries;
+    final showSeasonEp = item.category == Category.webSeries || item.category == Category.animeSeries;
     final genreDisplay = item.genres.replaceAll(',', ' • ');
-
-    // Hindi available check
     final isHindi = (item.hindiAvailable ?? 'No') == 'Yes';
 
     return Scaffold(
@@ -99,112 +121,67 @@ class _DetailScreenState extends State<DetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title
-                  Text(item.title,
-                      style: const TextStyle(
-                          fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text(item.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
 
-                  // Status + Category + Year + Hindi
                   Wrap(
                     spacing: 8,
                     runSpacing: 4,
                     children: [
                       _StatusChip(status: item.status),
-                      Text(item.category,
-                          style: const TextStyle(color: Colors.grey)),
-                      if (item.releaseYear.isNotEmpty)
-                        Text('· ${item.releaseYear}',
-                            style: const TextStyle(color: Colors.grey)),
-                      if (isHindi)
-                        const Text('· Hindi',
-                            style: TextStyle(color: Colors.green)),
+                      Text(item.category, style: const TextStyle(color: Colors.grey)),
+                      if (item.releaseYear.isNotEmpty) Text('· ${item.releaseYear}', style: const TextStyle(color: Colors.grey)),
+                      if (isHindi) const Text('· Hindi', style: TextStyle(color: Colors.green)),
                     ],
                   ),
 
                   const SizedBox(height: 12),
 
-                  // Rating
                   Row(
                     children: [
-                      const Icon(Icons.star,
-                          color: AppTheme.ratingGold, size: 20),
+                      const Icon(Icons.star, color: AppTheme.ratingGold, size: 20),
                       const SizedBox(width: 4),
                       Text(
                         '${item.rating.toStringAsFixed(1)} / 10',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
                       ),
                     ],
                   ),
 
                   const SizedBox(height: 12),
 
-                  // Genres
                   if (genreDisplay.isNotEmpty) ...[
-                    const Text('GENRES',
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey,
-                            letterSpacing: 1)),
+                    const Text('GENRES', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey, letterSpacing: 1)),
                     const SizedBox(height: 4),
                     Text(genreDisplay, style: const TextStyle(fontSize: 14)),
                     const SizedBox(height: 16),
                   ],
 
-                  // Season / Episode
                   if (showSeasonEp) ...[
                     Row(
                       children: [
-                        Expanded(
-                            child: _StatCard(
-                                label: 'SEASONS',
-                                value: item.seasons?.toString() ?? '-')),
+                        Expanded(child: _StatCard(label: 'SEASONS', value: item.seasons?.toString() ?? '-')),
                         const SizedBox(width: 12),
-                        Expanded(
-                            child: _StatCard(
-                                label: 'EPISODES',
-                                value: item.episodes?.toString() ?? '-')),
+                        Expanded(child: _StatCard(label: 'EPISODES', value: item.episodes?.toString() ?? '-')),
                       ],
                     ),
                     const SizedBox(height: 16),
                   ],
 
-                  // Description
-                  const Text('DESCRIPTION',
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey,
-                          letterSpacing: 1)),
+                  const Text('DESCRIPTION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey, letterSpacing: 1)),
                   const SizedBox(height: 4),
                   Text(
-                    item.description.isNotEmpty
-                        ? item.description
-                        : 'No description.',
+                    item.description.isNotEmpty ? item.description : 'No description.',
                     style: const TextStyle(fontSize: 14, height: 1.5),
                   ),
 
                   const SizedBox(height: 16),
 
-                  // ── WATCH ON BOX WITH LOGOS ───────────────
                   if ((item.watchSource ?? '').isNotEmpty)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'WATCH ON',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey,
-                            letterSpacing: 1,
-                          ),
-                        ),
+                        const Text('WATCH ON', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey, letterSpacing: 1)),
                         const SizedBox(height: 6),
                         Container(
                           height: 50,
@@ -212,24 +189,13 @@ class _DetailScreenState extends State<DetailScreen> {
                           decoration: BoxDecoration(
                             color: Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 6,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0, 3))],
                             border: Border.all(color: Colors.grey.shade300),
                           ),
                           child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 10),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
                             leading: _platformLogo(item.watchSource!),
-                            title: Text(
-                              item.watchSource!,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
+                            title: Text(item.watchSource!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                             dense: true,
                           ),
                         ),
@@ -237,39 +203,68 @@ class _DetailScreenState extends State<DetailScreen> {
                       ],
                     ),
 
-                  // Buttons: Edit / Delete
+                  // ── 🆕 STATUS ACTION BUTTONS ────────────────────────
+                  if (item.status == WatchStatus.planned) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () => _changeStatus(WatchStatus.watching),
+                            icon: const Icon(Icons.play_arrow),
+                            label: const Text('Start Watching'),
+                            style: FilledButton.styleFrom(backgroundColor: Colors.blue),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () => _changeStatus(WatchStatus.watched),
+                            icon: const Icon(Icons.check),
+                            label: const Text('Mark Watched'),
+                            style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ] else if (item.status == WatchStatus.watching) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => _changeStatus(WatchStatus.watched),
+                        icon: const Icon(Icons.check),
+                        label: const Text('Mark as Finished'),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Edit & Delete Buttons ─────────────────────────
                   Row(
                     children: [
                       Expanded(
-                        child: FilledButton.icon(
+                        child: OutlinedButton.icon(
                           onPressed: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                      AddEditScreen(itemId: item.id)),
-                            );
+                            await Navigator.push(context, MaterialPageRoute(builder: (_) => AddEditScreen(itemId: item.id)));
                             _loadItem();
                           },
-                          icon: const Icon(Icons.edit),
-                          label: const Text('Edit'),
+                          icon: const Icon(Icons.edit, color: Color(0xFFFFD700)),
+                          label: const Text('Edit', style: TextStyle(color: Color(0xFFFFD700))),
+                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFFFD700))),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _delete,
-                          icon:
-                          const Icon(Icons.delete_outline, color: Colors.red),
-                          label: const Text('Delete',
-                              style: TextStyle(color: Colors.red)),
-                          style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.red)),
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          label: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent)),
                         ),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 24),
                 ],
               ),
@@ -281,52 +276,23 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   // ── HELPER METHODS ─────────────────────────────────────
-
   Widget _buildPoster(WatchItem item) {
     if (item.posterPath != null && item.posterPath!.isNotEmpty) {
-      // 🆕 Check if the path is a Web URL from TMDB
       if (item.posterPath!.startsWith('http')) {
-        return CachedNetworkImage(
-          imageUrl: item.posterPath!,
-          fit: BoxFit.cover,
-          errorWidget: (_, __, ___) => _posterPlaceholder(),
-        );
-      }
-      // Fallback for your existing local images
-      else {
-        return Image.file(File(item.posterPath!),
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _posterPlaceholder());
+        return CachedNetworkImage(imageUrl: item.posterPath!, fit: BoxFit.cover, errorWidget: (_, __, ___) => _posterPlaceholder());
+      } else {
+        return Image.file(File(item.posterPath!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => _posterPlaceholder());
       }
     }
     return _posterPlaceholder();
   }
 
-  Widget _posterPlaceholder() => Container(
-    color: Colors.grey.shade400,
-    child: const Icon(Icons.movie, size: 80, color: Colors.white54),
-  );
+  Widget _posterPlaceholder() => Container(color: Colors.grey.shade400, child: const Icon(Icons.movie, size: 80, color: Colors.white54));
 
   Widget _platformLogo(String platform) {
-    const logoMap = {
-      'MLWBD': 'assets/platform/logo/mlwbd.png',
-      'MovieBox': 'assets/platform/logo/moviebox.png',
-      'HiAnime': 'assets/platform/logo/hianime.png',
-    };
-
+    const logoMap = {'MLWBD': 'assets/platform/logo/mlwbd.png', 'MovieBox': 'assets/platform/logo/moviebox.png', 'HiAnime': 'assets/platform/logo/hianime.png'};
     final path = logoMap[platform];
-
-    if (path != null) {
-      return Image.asset(
-        path,
-        width: 25,
-        height: 25,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) =>
-        const Icon(Icons.play_circle_fill, size: 25),
-      );
-    }
-
+    if (path != null) return Image.asset(path, width: 25, height: 25, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.play_circle_fill, size: 25));
     return const Icon(Icons.play_circle_fill, size: 25);
   }
 }
@@ -347,13 +313,8 @@ class _StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: _color,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(status,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+      decoration: BoxDecoration(color: _color, borderRadius: BorderRadius.circular(16)),
+      child: Text(status, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -370,13 +331,9 @@ class _StatCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Column(
           children: [
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 11, color: Colors.grey, letterSpacing: 1)),
+            Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, letterSpacing: 1)),
             const SizedBox(height: 4),
-            Text(value,
-                style: const TextStyle(
-                    fontSize: 24, fontWeight: FontWeight.bold)),
+            Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
