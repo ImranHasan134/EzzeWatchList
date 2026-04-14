@@ -7,6 +7,7 @@ import '../../data/database/watch_provider.dart';
 import '../../data/models/watch_item.dart';
 import '../../utils/app_theme.dart';
 import '../add_edit/add_edit_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class DetailScreen extends StatefulWidget {
   final int itemId;
@@ -283,9 +284,20 @@ class _DetailScreenState extends State<DetailScreen> {
 
   Widget _buildPoster(WatchItem item) {
     if (item.posterPath != null && item.posterPath!.isNotEmpty) {
-      return Image.file(File(item.posterPath!),
+      // 🆕 Check if the path is a Web URL from TMDB
+      if (item.posterPath!.startsWith('http')) {
+        return CachedNetworkImage(
+          imageUrl: item.posterPath!,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _posterPlaceholder());
+          errorWidget: (_, __, ___) => _posterPlaceholder(),
+        );
+      }
+      // Fallback for your existing local images
+      else {
+        return Image.file(File(item.posterPath!),
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _posterPlaceholder());
+      }
     }
     return _posterPlaceholder();
   }
