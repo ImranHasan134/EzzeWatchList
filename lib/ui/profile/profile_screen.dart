@@ -9,6 +9,7 @@ import '../../data/network/auth_service.dart';
 import '../../data/network/sync_service.dart';
 import '../../utils/backup_service.dart';
 import '../../utils/theme_provider.dart';
+import '../../data/database/db_helper.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -218,13 +219,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 24),
 
           // ── Logout Button ────────────────────────────────────
+          // ── Logout Button ────────────────────────────────────
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () async {
                 setState(() => _isLoading = true);
+
+                // 🆕 1. Wipe the local database clean so the next user starts fresh
+                await DbHelper().clearAllItems();
+
+                // 🆕 2. Clear the UI state in the background
+                if (context.mounted) {
+                  await context.read<WatchProvider>().loadAll();
+                }
+
+                // 3. Log out of Supabase and Google
                 await AuthService.signOut();
-                // No navigation needed, main.dart StreamBuilder handles it!
               },
               icon: const Icon(Icons.logout, color: Colors.redAccent),
               label: const Text('Log Out', style: TextStyle(color: Colors.redAccent, fontSize: 16)),

@@ -27,7 +27,7 @@ class DbHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // 🆕 Incremented version to apply the new column safely
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE $tableWatch(
@@ -44,9 +44,16 @@ class DbHelper {
             episodes INTEGER,
             createdAt INTEGER,
             hindiAvailable TEXT DEFAULT 'No',
-            watchSource TEXT DEFAULT ''
+            watchSource TEXT DEFAULT '',
+            tmdbId INTEGER 
           )
-        ''');
+        '''); // 🆕 tmdbId added to creation script
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        // 🆕 This safely updates existing users' databases without wiping their data
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE $tableWatch ADD COLUMN tmdbId INTEGER;');
+        }
       },
     );
   }
@@ -120,6 +127,7 @@ class DbHelper {
     String query = '',
     String genre = '',
     String category = '',
+    String sorting = 'Recently Added',
   }) async {
     final db = await database;
     final conditions = <String>[];
@@ -139,11 +147,27 @@ class DbHelper {
     }
 
     final where = conditions.isEmpty ? null : conditions.join(' AND ');
+
+    // 🆕 Dynamic Sorting Logic Applied Here
+    String orderBy;
+    switch (sorting) {
+      case 'Highest Rated':
+        orderBy = 'rating DESC';
+        break;
+      case 'Newest Release':
+        orderBy = 'releaseYear DESC, title ASC';
+        break;
+      case 'Recently Added':
+      default:
+        orderBy = 'createdAt DESC';
+        break;
+    }
+
     final maps = await db.query(
       tableWatch,
       where: where,
       whereArgs: args.isEmpty ? null : args,
-      orderBy: 'createdAt DESC',
+      orderBy: orderBy, // 🆕 Ordering is now dynamic!
     );
     return maps.map(WatchItem.fromMap).toList();
   }

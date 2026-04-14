@@ -16,7 +16,8 @@ class WatchItem {
   final int? episodes;
   final int createdAt;
   final String? hindiAvailable; // "Yes" / "No"
-  final String? watchSource;    // MLWBD / MovieBox / HiAnime
+  final String? watchSource;
+  final int? tmdbId;// MLWBD / MovieBox / HiAnime
 
   const WatchItem({
     this.id,
@@ -33,6 +34,7 @@ class WatchItem {
     required this.createdAt,
     this.hindiAvailable,
     this.watchSource,
+    this.tmdbId,
   });
 
   Map<String, dynamic> toMap() {
@@ -51,6 +53,7 @@ class WatchItem {
       'createdAt': createdAt,
       'hindiAvailable': hindiAvailable ?? 'No',
       'watchSource': watchSource ?? '',
+      'tmdbId': tmdbId,
     };
   }
 
@@ -70,6 +73,7 @@ class WatchItem {
       createdAt: map['createdAt'] as int,
       hindiAvailable: map['hindiAvailable'] as String?,
       watchSource: map['watchSource'] as String?,
+      tmdbId: map['tmdbId'],
     );
   }
 

@@ -5,12 +5,9 @@ import '../database/db_helper.dart';
 import '../models/watch_item.dart';
 import '../network/sync_service.dart';
 
-// Single ChangeNotifier that drives the whole app.
-// Future upgrade: swap DbHelper calls with Supabase calls here.
 class WatchProvider extends ChangeNotifier {
   final DbHelper _db = DbHelper();
 
-  // ── Per-tab lists ────────────────────────────────────────────────────────
   List<WatchItem> _watched  = [];
   List<WatchItem> _watching = [];
   List<WatchItem> _planned  = [];
@@ -20,19 +17,18 @@ class WatchProvider extends ChangeNotifier {
   List<WatchItem> get planned  => _planned;
   List<WatchItem> get items => [..._watched, ..._watching, ..._planned];
 
-
-  // ── Search & Filter ──────────────────────────────────────────────────────
   List<WatchItem> _searchResults = [];
   String _searchQuery    = '';
   String _filterGenre    = '';
   String _filterCategory = '';
+  String _sortingOption = 'Recently Added'; // 🆕 sorting state
 
   List<WatchItem> get searchResults  => _searchResults;
   String get searchQuery    => _searchQuery;
   String get filterGenre    => _filterGenre;
   String get filterCategory => _filterCategory;
+  String get sortingOption => _sortingOption; // expose
 
-  // ── Stats ────────────────────────────────────────────────────────────────
   int     _watchedCount = 0;
   int     _totalCount   = 0;
   double? _averageRating;
@@ -43,7 +39,6 @@ class WatchProvider extends ChangeNotifier {
   double? get averageRating => _averageRating;
   String? get topGenre      => _topGenre;
 
-  // ── Init ─────────────────────────────────────────────────────────────────
   Future<void> loadAll() async {
     await Future.wait([
       _loadTab(WatchStatus.watched),
@@ -72,16 +67,15 @@ class WatchProvider extends ChangeNotifier {
     _topGenre = _getMostFrequentGenre(genresList);
   }
 
- // ── CRUD ─────────────────────────────────────────────────────────────────
   Future<void> addItem(WatchItem item) async {
     await _db.insertItem(item);
-    await SyncService.pushItem(item); // 🆕 Push to cloud
+    await SyncService.pushItem(item); // Push to cloud
     await loadAll();
   }
 
   Future<void> updateItem(WatchItem item) async {
     await _db.updateItem(item);
-    await SyncService.pushItem(item); // 🆕 Update in cloud
+    await SyncService.pushItem(item); // Update in cloud
     await loadAll();
     await refreshSearch();
   }
@@ -90,7 +84,7 @@ class WatchProvider extends ChangeNotifier {
     final item = await _db.getItemById(id);
     if (item != null) {
       await _db.deleteItem(id);
-      await SyncService.deleteItem(item.createdAt); // 🆕 Delete from cloud
+      await SyncService.deleteItem(item.createdAt); // Delete from cloud
       await loadAll();
       await refreshSearch();
     }
@@ -98,7 +92,6 @@ class WatchProvider extends ChangeNotifier {
 
   Future<WatchItem?> getItemById(int id) => _db.getItemById(id);
 
-  // ── Search ────────────────────────────────────────────────────────────────
   Future<void> setSearchQuery(String query) async {
     _searchQuery = query;
     await refreshSearch();
@@ -114,16 +107,22 @@ class WatchProvider extends ChangeNotifier {
     await refreshSearch();
   }
 
+  // 🆕 sorting methods
+  Future<void> setSortingOption(String option) async {
+    _sortingOption = option;
+    await refreshSearch();
+  }
+
   Future<void> refreshSearch() async {
     _searchResults = await _db.searchAndFilter(
       query: _searchQuery,
       genre: _filterGenre,
       category: _filterCategory,
+      sorting: _sortingOption, // 🆕 Pass sorting
     );
     notifyListeners();
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
   String? _getMostFrequentGenre(List<String> genresList) {
     final counts = <String, int>{};
     for (final genres in genresList) {
