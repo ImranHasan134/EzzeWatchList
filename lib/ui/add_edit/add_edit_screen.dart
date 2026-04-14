@@ -41,7 +41,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   String? _watchSource;
 
   bool _isLoading = false;
-  bool _isSearchingTmdb = false;
+  bool _isSearchingApi = false;
   WatchItem? _editingItem;
 
   @override
@@ -52,11 +52,12 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
   // 🆕 Dynamic options
   List<String> get _watchOptions {
-    if (_category == Category.anime) {
+    if (_category == Category.animeSeries || _category == Category.animeMovie) {
       return ['MLWBD', 'MovieBox', 'HiAnime'];
     }
     return ['MLWBD', 'MovieBox'];
   }
+  bool get _showSeasonEp => _category == Category.webSeries || _category == Category.animeSeries;
 
   Future<void> _loadItem() async {
     setState(() => _isLoading = true);
@@ -94,7 +95,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
   // ── TMDB SEARCH METHODS ────────────────────────────────────
 
-  Future<void> _searchTmdb() async {
+  Future<void> _searchApi() async {
     final query = _titleCtrl.text.trim();
     if (query.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -102,22 +103,30 @@ class _AddEditScreenState extends State<AddEditScreen> {
       return;
     }
 
-    setState(() => _isSearchingTmdb = true);
-    final results = await TmdbService().searchContent(query);
-    setState(() => _isSearchingTmdb = false);
+    setState(() => _isSearchingApi = true);
+
+    // 🆕 SMART ROUTING: Use Jikan for Anime, TMDB for everything else
+    List<Map<String, dynamic>> results = [];
+    if (_category == Category.animeSeries || _category == Category.animeMovie) {
+      results = await JikanService().searchAnime(query);
+    } else {
+      results = await TmdbService().searchContent(query);
+    }
+
+    setState(() => _isSearchingApi = false);
 
     if (results.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No results found on TMDB.')));
+          SnackBar(content: Text('No results found on ${_category == Category.anime ? 'Jikan' : 'TMDB'}.')));
       return;
     }
 
     if (!mounted) return;
-    _showTmdbResults(results);
+    _showSearchResults(results); // We will rename the bottom sheet method too
   }
 
-  void _showTmdbResults(List<Map<String, dynamic>> results) {
+  void _showSearchResults(List<Map<String, dynamic>> results) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
@@ -150,23 +159,49 @@ class _AddEditScreenState extends State<AddEditScreen> {
               title: Text(item['title'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text('${item['releaseYear']} • ${item['category']}'),
               trailing: Text('⭐ ${item['rating']}', style: const TextStyle(color: Color(0xFFFFD700))),
-              onTap: () {
-                // Auto-fill the form!
-                setState(() {
-                  _titleCtrl.text = item['title'] ?? '';
-                  _yearCtrl.text = item['releaseYear'] ?? '';
-                  _descCtrl.text = item['description'] ?? '';
-                  _posterPath = item['posterPath'];
+                onTap: () async {
+                  // 🆕 Pop the sheet instantly for a snappy UI feel
+                  Navigator.pop(ctx);
 
-                  double newRating = (item['rating'] as num).toDouble();
-                  _rating = newRating.clamp(1.0, 10.0); // Keep slider in bounds
+                  int? seasons;
+                  int? episodes = item['episodes']; // Pre-filled from Jikan if Anime
 
-                  if (Category.all.contains(item['category'])) {
-                    _category = item['category'];
+                  // 🆕 If it's a Web Series, fetch the exact counts from TMDB in the background
+                  if (item['category'] == 'Web Series' && item['id'] != null) {
+                    final details = await TmdbService().getTvSeasonEpisode(item['id']);
+                    seasons = details['seasons'];
+                    episodes = details['episodes'];
                   }
-                });
-                Navigator.pop(ctx);
-              },
+
+                  setState(() {
+                    _titleCtrl.text = item['title'] ?? '';
+                    _yearCtrl.text = item['releaseYear'] ?? '';
+                    _descCtrl.text = item['description'] ?? '';
+                    _posterPath = item['posterPath'];
+
+                    double newRating = (item['rating'] as num).toDouble();
+                    _rating = newRating.clamp(1.0, 10.0);
+
+                    if (Category.all.contains(item['category'])) {
+                      _category = item['category'];
+                    }
+
+                    // 🆕 Auto-fill the Season and Episode boxes!
+                    if (seasons != null && seasons > 0) _seasonsCtrl.text = seasons.toString();
+                    if (episodes != null && episodes > 0) _episodesCtrl.text = episodes.toString();
+
+                    if (item['genres'] != null) {
+                      final fetchedGenres = List<String>.from(item['genres']);
+                      _selectedGenres.clear();
+                      _selectedGenres.addAll(fetchedGenres.take(4));
+
+                      for (final g in _selectedGenres) {
+                        if (!Genre.all.contains(g)) Genre.all.add(g);
+                      }
+                      Genre.all.sort();
+                    }
+                  });
+                },
             );
           },
         );
@@ -298,8 +333,8 @@ class _AddEditScreenState extends State<AddEditScreen> {
                   SizedBox(
                     height: 55,
                     child: IconButton.filled(
-                      onPressed: _isSearchingTmdb ? null : _searchTmdb,
-                      icon: _isSearchingTmdb
+                      onPressed: _isSearchingApi ? null : _searchApi,
+                      icon: _isSearchingApi
                           ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
                           : const Icon(Icons.search),
                       style: IconButton.styleFrom(

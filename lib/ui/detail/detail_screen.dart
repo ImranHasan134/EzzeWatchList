@@ -63,7 +63,7 @@ class _DetailScreenState extends State<DetailScreen> {
 
     final item = _item!;
     final showSeasonEp =
-        item.category == Category.webSeries || item.category == Category.anime;
+        item.category == Category.webSeries || item.category == Category.animeSeries;
     final genreDisplay = item.genres.replaceAll(',', ' • ');
 
     // Hindi available check
