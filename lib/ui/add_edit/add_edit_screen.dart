@@ -118,7 +118,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
     if (results.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No results found on ${_category == Category.anime ? 'Jikan' : 'TMDB'}.')));
+          SnackBar(content: Text('No results found on ${(_category == Category.animeSeries || _category == Category.animeMovie) ? 'Jikan' : 'TMDB'}.')));
       return;
     }
 
@@ -240,9 +240,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
     Navigator.pop(context);
   }
-
-  bool get _showSeasonEp => _category == Category.webSeries || _category == Category.anime;
-
   @override
   void dispose() {
     _titleCtrl.dispose();
