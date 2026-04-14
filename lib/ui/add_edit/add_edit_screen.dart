@@ -8,6 +8,8 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import '../../data/database/watch_provider.dart';
 import '../../data/models/watch_item.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../data/network/tmdb_service.dart';
 
 class AddEditScreen extends StatefulWidget {
   final int? itemId;
@@ -37,6 +39,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   String? _watchSource;
 
   bool _isLoading = false;
+  bool _isSearchingTmdb = false;
   WatchItem? _editingItem;
 
   @override
@@ -117,6 +120,86 @@ class _AddEditScreenState extends State<AddEditScreen> {
     }
 
     Navigator.pop(context);
+
+    Future<void> _searchTmdb() async {
+      final query = _titleCtrl.text.trim();
+      if (query.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please enter a title to search first.')));
+        return;
+      }
+
+      setState(() => _isSearchingTmdb = true);
+      final results = await TmdbService().searchContent(query);
+      setState(() => _isSearchingTmdb = false);
+
+      if (results.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No results found on TMDB.')));
+        return;
+      }
+
+      if (!mounted) return;
+      _showTmdbResults(results);
+    }
+
+    void _showTmdbResults(List<Map<String, dynamic>> results) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (ctx) {
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: results.length,
+            separatorBuilder: (_, __) => const Divider(height: 1, color: Colors.grey),
+            itemBuilder: (ctx, i) {
+              final item = results[i];
+              return ListTile(
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                leading: item['posterPath'] != null
+                    ? ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: CachedNetworkImage(
+                    imageUrl: item['posterPath'],
+                    width: 50,
+                    height: 75,
+                    fit: BoxFit.cover,
+                    errorWidget: (context, url, error) => const Icon(Icons.movie),
+                  ),
+                )
+                    : const Icon(Icons.movie, size: 50),
+                title: Text(item['title'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('${item['releaseYear']} • ${item['category']}'),
+                trailing: Text('⭐ ${item['rating']}', style: const TextStyle(color: Color(0xFFFFD700))),
+                onTap: () {
+                  // Auto-fill the form!
+                  setState(() {
+                    _titleCtrl.text = item['title'] ?? '';
+                    _yearCtrl.text = item['releaseYear'] ?? '';
+                    _descCtrl.text = item['description'] ?? '';
+                    _posterPath = item['posterPath'];
+
+                    double newRating = (item['rating'] as num).toDouble();
+                    _rating = newRating.clamp(1.0, 10.0); // Keep slider in bounds
+
+                    if (Category.all.contains(item['category'])) {
+                      _category = item['category'];
+                    }
+                  });
+                  Navigator.pop(ctx);
+                },
+              );
+            },
+          );
+        },
+      );
+    }
   }
 
 
