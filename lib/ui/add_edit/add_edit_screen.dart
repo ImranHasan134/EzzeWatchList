@@ -6,9 +6,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../data/network/jikan_service.dart';
+
 import '../../data/database/watch_provider.dart';
 import '../../data/models/watch_item.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/network/tmdb_service.dart';
 
 class AddEditScreen extends StatefulWidget {
@@ -90,6 +92,90 @@ class _AddEditScreenState extends State<AddEditScreen> {
     setState(() => _posterPath = savedFile.path);
   }
 
+  // ── TMDB SEARCH METHODS ────────────────────────────────────
+
+  Future<void> _searchTmdb() async {
+    final query = _titleCtrl.text.trim();
+    if (query.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a title to search first.')));
+      return;
+    }
+
+    setState(() => _isSearchingTmdb = true);
+    final results = await TmdbService().searchContent(query);
+    setState(() => _isSearchingTmdb = false);
+
+    if (results.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No results found on TMDB.')));
+      return;
+    }
+
+    if (!mounted) return;
+    _showTmdbResults(results);
+  }
+
+  void _showTmdbResults(List<Map<String, dynamic>> results) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: results.length,
+          separatorBuilder: (_, __) => const Divider(height: 1, color: Colors.grey),
+          itemBuilder: (ctx, i) {
+            final item = results[i];
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              leading: item['posterPath'] != null
+                  ? ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: CachedNetworkImage(
+                  imageUrl: item['posterPath'],
+                  width: 50,
+                  height: 75,
+                  fit: BoxFit.cover,
+                  errorWidget: (context, url, error) => const Icon(Icons.movie),
+                ),
+              )
+                  : const Icon(Icons.movie, size: 50),
+              title: Text(item['title'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('${item['releaseYear']} • ${item['category']}'),
+              trailing: Text('⭐ ${item['rating']}', style: const TextStyle(color: Color(0xFFFFD700))),
+              onTap: () {
+                // Auto-fill the form!
+                setState(() {
+                  _titleCtrl.text = item['title'] ?? '';
+                  _yearCtrl.text = item['releaseYear'] ?? '';
+                  _descCtrl.text = item['description'] ?? '';
+                  _posterPath = item['posterPath'];
+
+                  double newRating = (item['rating'] as num).toDouble();
+                  _rating = newRating.clamp(1.0, 10.0); // Keep slider in bounds
+
+                  if (Category.all.contains(item['category'])) {
+                    _category = item['category'];
+                  }
+                });
+                Navigator.pop(ctx);
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ──────────────────────────────────────────────────────────
+
   void _save() {
     if (!_formKey.currentState!.validate()) return;
 
@@ -106,8 +192,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
       seasons: _seasonsCtrl.text.isNotEmpty ? int.tryParse(_seasonsCtrl.text) : null,
       episodes: _episodesCtrl.text.isNotEmpty ? int.tryParse(_episodesCtrl.text) : null,
       createdAt: _editingItem?.createdAt ?? DateTime.now().millisecondsSinceEpoch,
-
-      // ── ADD NEW FIELDS ─────────────────────────────
       hindiAvailable: _hindiAvailable,
       watchSource: _watchSource ?? _watchOptions.first,
     );
@@ -120,88 +204,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
     }
 
     Navigator.pop(context);
-
-    Future<void> _searchTmdb() async {
-      final query = _titleCtrl.text.trim();
-      if (query.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please enter a title to search first.')));
-        return;
-      }
-
-      setState(() => _isSearchingTmdb = true);
-      final results = await TmdbService().searchContent(query);
-      setState(() => _isSearchingTmdb = false);
-
-      if (results.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No results found on TMDB.')));
-        return;
-      }
-
-      if (!mounted) return;
-      _showTmdbResults(results);
-    }
-
-    void _showTmdbResults(List<Map<String, dynamic>> results) {
-      final isDark = Theme.of(context).brightness == Brightness.dark;
-
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        builder: (ctx) {
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: results.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, color: Colors.grey),
-            itemBuilder: (ctx, i) {
-              final item = results[i];
-              return ListTile(
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                leading: item['posterPath'] != null
-                    ? ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: CachedNetworkImage(
-                    imageUrl: item['posterPath'],
-                    width: 50,
-                    height: 75,
-                    fit: BoxFit.cover,
-                    errorWidget: (context, url, error) => const Icon(Icons.movie),
-                  ),
-                )
-                    : const Icon(Icons.movie, size: 50),
-                title: Text(item['title'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('${item['releaseYear']} • ${item['category']}'),
-                trailing: Text('⭐ ${item['rating']}', style: const TextStyle(color: Color(0xFFFFD700))),
-                onTap: () {
-                  // Auto-fill the form!
-                  setState(() {
-                    _titleCtrl.text = item['title'] ?? '';
-                    _yearCtrl.text = item['releaseYear'] ?? '';
-                    _descCtrl.text = item['description'] ?? '';
-                    _posterPath = item['posterPath'];
-
-                    double newRating = (item['rating'] as num).toDouble();
-                    _rating = newRating.clamp(1.0, 10.0); // Keep slider in bounds
-
-                    if (Category.all.contains(item['category'])) {
-                      _category = item['category'];
-                    }
-                  });
-                  Navigator.pop(ctx);
-                },
-              );
-            },
-          );
-        },
-      );
-    }
   }
-
 
   bool get _showSeasonEp => _category == Category.webSeries || _category == Category.anime;
 
@@ -283,8 +286,31 @@ class _AddEditScreenState extends State<AddEditScreen> {
               _buildPosterSection(isDark),
               const SizedBox(height: 16),
 
-              _buildTextField(_titleCtrl, 'Title *', isDark,
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null),
+              // 🆕 UPDATED TITLE FIELD WITH SEARCH BUTTON
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildTextField(_titleCtrl, 'Title *', isDark,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 55,
+                    child: IconButton.filled(
+                      onPressed: _isSearchingTmdb ? null : _searchTmdb,
+                      icon: _isSearchingTmdb
+                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                          : const Icon(Icons.search),
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFD700),
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
 
               const SizedBox(height: 12),
 
@@ -311,7 +337,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
               const SizedBox(height: 12),
 
-              // 🆕 Hindi Available Dropdown
               _buildDropdown(
                 'Hindi Available?',
                 ['Yes', 'No'],
@@ -322,7 +347,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
               const SizedBox(height: 12),
 
-              // 🆕 Where to Watch
               _buildDropdown(
                 'Where to Watch',
                 _watchOptions,
@@ -378,8 +402,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
     );
   }
 
-  // KEEP ALL YOUR EXISTING HELPER METHODS SAME
-
+  // ── HELPER WIDGETS ──────────────────────────────────────────
 
   Widget _buildPosterSection(bool isDark) {
     return Center(
@@ -396,7 +419,14 @@ class _AddEditScreenState extends State<AddEditScreen> {
           clipBehavior: Clip.antiAlias,
           child: _posterPath != null
               ? Stack(fit: StackFit.expand, children: [
-            Image.file(File(_posterPath!), fit: BoxFit.cover,
+            // 🆕 UPDATED TO HANDLE BOTH WEB URLS AND LOCAL FILES
+            _posterPath!.startsWith('http')
+                ? CachedNetworkImage(
+              imageUrl: _posterPath!,
+              fit: BoxFit.cover,
+              errorWidget: (_, __, ___) => _posterPlaceholder(),
+            )
+                : Image.file(File(_posterPath!), fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => _posterPlaceholder()),
             Positioned(
               bottom: 0, left: 0, right: 0,
@@ -542,7 +572,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
       ],
     );
   }
-
 
   Widget _buildRatingSlider(bool isDark) {
     return Column(
