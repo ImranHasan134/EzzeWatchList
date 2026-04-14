@@ -31,8 +31,18 @@ dependencies:
 
   # File picker for import
   file_picker: ^8.1.7
-
   cupertino_icons: ^1.0.6
+
+  # Supabase & Auth
+  supabase_flutter: ^2.5.4
+  google_sign_in: ^6.2.1
+
+  # API & Networking
+  http: ^1.2.1
+
+  # Image Rendering (Crucial for TMDB web URLs)
+  cached_network_image: ^3.3.1
+  flutter_dotenv: ^6.0.0
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4   # <-- UPDATED
@@ -54,6 +64,7 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
   assets:
+    - .env
     - assets/platform/logo/mlwbd.png
     - assets/platform/logo/moviebox.png
     - assets/platform/logo/hianime.png

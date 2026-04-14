@@ -117,16 +117,57 @@ class WatchStatus {
 }
 
 class Category {
-  static const String movie     = 'Movie';
-  static const String webSeries = 'Web Series';
-  static const String anime     = 'Anime';
-  static const List<String> all = [movie, webSeries, anime];
+  static const String movie       = 'Movie';
+  static const String webSeries   = 'Web Series';
+  static const String animeMovie  = 'Anime Movie';
+  static const String animeSeries = 'Anime Series';
+  static const List<String> all = [movie, webSeries, animeMovie, animeSeries];
 }
 
 class Genre {
-  static const List<String> all = [
-    'Action', 'Adventure', 'Animation', 'Comedy', 'Crime',
-    'Documentary', 'Drama', 'Fantasy', 'Horror', 'Mystery',
-    'Romance', 'Sci-Fi', 'Thriller', 'Western',
+  // A comprehensive master list of Movie, TV Series, and Anime genres
+  static List<String> all = [
+    'Action',
+    'Action & Adventure',
+    'Adventure',
+    'Animation',
+    'Avant Garde',
+    'Award Winning',
+    'Boys Love',
+    'Comedy',
+    'Crime',
+    'Documentary',
+    'Drama',
+    'Ecchi',
+    'Family',
+    'Fantasy',
+    'Girls Love',
+    'Gourmet',
+    'History',
+    'Horror',
+    'Isekai',
+    'Kids',
+    'Magic',
+    'Martial Arts',
+    'Mecha',
+    'Music',
+    'Mystery',
+    'News',
+    'Psychological',
+    'Reality',
+    'Romance',
+    'Sci-Fi',
+    'Sci-Fi & Fantasy',
+    'Slice of Life',
+    'Soap',
+    'Sports',
+    'Supernatural',
+    'Suspense',
+    'Talk',
+    'Thriller',
+    'TV Movie',
+    'War',
+    'War & Politics',
+    'Western',
   ];
 }

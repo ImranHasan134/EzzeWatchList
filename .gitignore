@@ -44,3 +44,6 @@ app.*.map.json
 
 # Local properties (contains machine-specific paths)
 android/local.properties
+
+# Secure Environment Variables
+.env

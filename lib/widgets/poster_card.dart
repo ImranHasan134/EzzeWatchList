@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // 🆕 Added import
 import '../data/models/watch_item.dart';
 import '../utils/app_theme.dart';
 
@@ -98,15 +99,28 @@ class PosterCard extends StatelessWidget {
 
   Widget _buildPoster() {
     if (item.posterPath != null && item.posterPath!.isNotEmpty) {
-      return Image.file(
-        File(item.posterPath!),
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _placeholder(),
-      );
+      // 🆕 Check if the path is a Web URL from TMDB
+      if (item.posterPath!.startsWith('http')) {
+        return CachedNetworkImage(
+          imageUrl: item.posterPath!,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(color: Colors.black12),
+          errorWidget: (context, url, error) => _placeholder(),
+        );
+      }
+      // Fallback for your existing local images
+      else {
+        return Image.file(
+          File(item.posterPath!),
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _placeholder(),
+        );
+      }
     }
     return _placeholder();
   }
 
+  // ⚠️ The missing placeholder method is back!
   Widget _placeholder() {
     return Container(
       color: Colors.grey.shade800.withOpacity(0.15),
