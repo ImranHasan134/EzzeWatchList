@@ -148,34 +148,65 @@ class _ExploreScreenState extends State<ExploreScreen> {
     });
   }
 
-  // ── 🧭 EXPLORE LOGIC ─────────────────────────────────────────
+// lib/ui/explore/explore_screen.dart
+
+// ── 🧭 UPDATED EXPLORE LOGIC (60 Items) ───────────────────────
 
   Future<void> _fetchInitialData() async {
     setState(() => _isExploreLoading = true);
-    final results = await _tmdbService.getTrending();
-    if (mounted) {
-      setState(() {
-        _exploreResults = results;
-        _isExploreLoading = false;
-      });
+
+    try {
+      // 🆕 Fetch 3 pages (20 items each) in parallel for speed
+      final results = await Future.wait([
+        _tmdbService.getTrending(page: 1),
+        _tmdbService.getTrending(page: 2),
+        _tmdbService.getTrending(page: 3),
+      ]);
+
+      // Flatten the 3 lists into one big list of 60 items
+      final allItems = results.expand((page) => page).toList();
+
+      if (mounted) {
+        setState(() {
+          _exploreResults = allItems;
+          _isExploreLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isExploreLoading = false);
     }
   }
 
   Future<void> _fetchFilteredData() async {
+    // If user clears filters, go back to the 60 trending items
     if (_selectedGenreName == null && _selectedSortName == null) {
       _fetchInitialData();
       return;
     }
+
     setState(() => _isExploreLoading = true);
-    final results = await _tmdbService.discoverMovies(
-      genreId: _genreOptions[_selectedGenreName],
-      sortBy: _sortOptions[_selectedSortName] ?? 'popularity.desc',
-    );
-    if (mounted) {
-      setState(() {
-        _exploreResults = results;
-        _isExploreLoading = false;
-      });
+
+    try {
+      final genreId = _genreOptions[_selectedGenreName];
+      final sortBy = _sortOptions[_selectedSortName] ?? 'popularity.desc';
+
+      // 🆕 Also fetch 3 pages for filtered data so the categories feel full
+      final results = await Future.wait([
+        _tmdbService.discoverMovies(genreId: genreId, sortBy: sortBy, page: 1),
+        _tmdbService.discoverMovies(genreId: genreId, sortBy: sortBy, page: 2),
+        _tmdbService.discoverMovies(genreId: genreId, sortBy: sortBy, page: 3),
+      ]);
+
+      final allItems = results.expand((page) => page).toList();
+
+      if (mounted) {
+        setState(() {
+          _exploreResults = allItems;
+          _isExploreLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isExploreLoading = false);
     }
   }
 

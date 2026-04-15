@@ -4,7 +4,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/network/tmdb_service.dart';
-import '../detail/global_detail_screen.dart'; // 🆕 Imported the global detail screen!
+import '../detail/global_detail_screen.dart';
+import 'see_all_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,7 +23,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _topRatedShows = [];
   List<Map<String, dynamic>> _animeList = [];
 
-  // ── 🆕 CAROUSEL CONTROLLERS ──
   final PageController _pageController = PageController();
   Timer? _carouselTimer;
   int _currentCarouselIndex = 0;
@@ -56,16 +56,14 @@ class _HomeScreenState extends State<HomeScreen> {
         _animeList = results[3];
         _isLoading = false;
       });
-      _startCarousel(); // 🆕 Start the merry-go-round!
+      _startCarousel();
     }
   }
 
-  // ── 🆕 AUTO-SCROLL LOGIC ──
   void _startCarousel() {
-    _carouselTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+    _carouselTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (_pageController.hasClients && _trending.isNotEmpty) {
         int nextIndex = _currentCarouselIndex + 1;
-        // Limit to top 10
         if (nextIndex >= 10 || nextIndex >= _trending.length) {
           nextIndex = 0;
         }
@@ -96,35 +94,24 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── 🆕 HERO CAROUSEL ──
             _buildHeroCarousel(isDark),
-
             const SizedBox(height: 24),
-
-            // ── HORIZONTAL CAROUSELS ──
-            _buildCarousel('Trending Now', _trending.skip(10).toList(), isDark), // Skip the top 10 since they are in the banner
-            _buildCarousel('Popular Movies', _popularMovies, isDark),
-            _buildCarousel('Top Rated TV Shows', _topRatedShows, isDark),
-            _buildCarousel('Trending Anime', _animeList, isDark),
+            _buildCarousel('Trending Now', _trending.skip(10).toList(), isDark, 'trending'),
+            _buildCarousel('Popular Movies', _popularMovies, isDark, 'popular'),
+            _buildCarousel('Top Rated TV Shows', _topRatedShows, isDark, 'top_rated'),
+            _buildCarousel('Trending Anime', _animeList, isDark, 'anime'),
           ],
         ),
       ),
     );
   }
 
-  // ── 🆕 UPGRADED HERO CAROUSEL UI ──
-  // ── UPGRADED HERO CAROUSEL UI (Fixed Dots) ──
-  // lib/ui/home/home_screen.dart
-
-// ... (keep the imports and the class state logic same)
-
-  // ── 🆕 UPDATED HERO CAROUSEL UI (Full Title) ──
   Widget _buildHeroCarousel(bool isDark) {
     final topItems = _trending.take(10).toList();
     if (topItems.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 500, // 🆕 Slightly increased height for longer titles
+      height: 500,
       child: Stack(
         children: [
           PageView.builder(
@@ -160,28 +147,34 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? CachedNetworkImage(imageUrl: imagePath, fit: BoxFit.cover)
                           : Container(color: Colors.grey.shade900),
                     ),
-
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 50),
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 60),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(color: const Color(0xFFFFD700).withOpacity(0.2), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFFD700))),
-                            child: Text(item['category'] ?? 'Movie', style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10, fontWeight: FontWeight.bold)),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFD700).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFFFD700)),
+                            ),
+                            child: Text(
+                              item['category'] ?? 'Movie',
+                              style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
                           ),
                           const SizedBox(height: 12),
-
-                          // 🆕 TITLE: Removed maxLines and overflow to show FULL NAME
                           Text(
-                              item['title'] ?? '',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, height: 1.1)
+                            item['title'] ?? '',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, height: 1.1),
                           ),
                           const SizedBox(height: 8),
-
-                          Text(genres, style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.w600)),
+                          Text(
+                            genres,
+                            style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.w600),
+                          ),
                         ],
                       ),
                     )
@@ -191,14 +184,16 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           Positioned(
-            bottom: 12, left: 0, right: 0,
+            bottom: 20,
+            left: 0,
+            right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(topItems.length, (dotIndex) {
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: _currentCarouselIndex == dotIndex ? 16 : 6,
+                  width: _currentCarouselIndex == dotIndex ? 18 : 6,
                   height: 6,
                   decoration: BoxDecoration(
                     color: _currentCarouselIndex == dotIndex ? const Color(0xFFFFD700) : Colors.grey.withOpacity(0.5),
@@ -213,8 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── 🆕 REUSABLE HORIZONTAL CAROUSEL (Full Titles) ──
-  Widget _buildCarousel(String title, List<Map<String, dynamic>> items, bool isDark) {
+  Widget _buildCarousel(String title, List<Map<String, dynamic>> items, bool isDark, String categoryType) {
     if (items.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -222,10 +216,26 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => SeeAllScreen(title: title, categoryType: categoryType),
+                  ));
+                },
+                child: const Text(
+                  'See all',
+                  style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
         ),
         SizedBox(
-          height: 250, // 🆕 Increased height to allow 2-3 lines of text below posters
+          height: 260, // Height adjusted for multi-line titles
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -240,20 +250,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Poster
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: AspectRatio(
-                          aspectRatio: 2/3, // Keeps all posters same size
+                          aspectRatio: 2 / 3,
                           child: item['posterPath'] != null
                               ? CachedNetworkImage(imageUrl: item['posterPath'], fit: BoxFit.cover)
                               : Container(color: Colors.grey.shade900, child: const Icon(Icons.movie, color: Colors.white54)),
                         ),
                       ),
                       const SizedBox(height: 8),
-                      // 🆕 TITLE: Removed maxLines so the full name wraps to the next line
                       Text(
                         item['title'] ?? 'Unknown',
+                        maxLines: 2, // Allows title to wrap but limits to 2 lines
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, height: 1.2),
                         textAlign: TextAlign.start,
                       ),
@@ -264,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
       ],
     );
   }

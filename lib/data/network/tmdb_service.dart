@@ -83,11 +83,16 @@ class TmdbService {
   }
 
   // ── 🆕 HOME SCREEN FEEDS ─────────────────────────────────────
-  Future<List<Map<String, dynamic>>> getTrending() async => _fetchList('$_baseUrl/trending/all/day?api_key=$_apiKey');
-  Future<List<Map<String, dynamic>>> getPopularMovies() async => _fetchList('$_baseUrl/movie/popular?api_key=$_apiKey', fallbackType: 'movie');
-  Future<List<Map<String, dynamic>>> getTopRatedShows() async => _fetchList('$_baseUrl/tv/top_rated?api_key=$_apiKey', fallbackType: 'tv');
-  Future<List<Map<String, dynamic>>> getAnime() async => _fetchList('$_baseUrl/discover/tv?api_key=$_apiKey&with_genres=16&with_original_language=ja', fallbackType: 'tv');
+  Future<List<Map<String, dynamic>>> getTrending({int page = 1}) async =>
+      _fetchList('$_baseUrl/trending/all/day?api_key=$_apiKey&page=$page');
+  Future<List<Map<String, dynamic>>> getPopularMovies({int page = 1}) async =>
+      _fetchList('$_baseUrl/movie/popular?api_key=$_apiKey&page=$page', fallbackType: 'movie');
 
+  Future<List<Map<String, dynamic>>> getTopRatedShows({int page = 1}) async =>
+      _fetchList('$_baseUrl/tv/top_rated?api_key=$_apiKey&page=$page', fallbackType: 'tv');
+
+  Future<List<Map<String, dynamic>>> getAnime({int page = 1}) async =>
+      _fetchList('$_baseUrl/discover/tv?api_key=$_apiKey&with_genres=16&with_original_language=ja&page=$page', fallbackType: 'tv');
   Future<List<Map<String, dynamic>>> _fetchList(String urlStr, {String fallbackType = 'movie'}) async {
     try {
       final response = await http.get(Uri.parse(urlStr));
@@ -151,8 +156,8 @@ class TmdbService {
 
 
   // ── 🆕 DYNAMIC DISCOVER (For Explore Screen) ──────────────────
-  Future<List<Map<String, dynamic>>> discoverMovies({int? genreId, String sortBy = 'popularity.desc'}) async {
-    String urlStr = '$_baseUrl/discover/movie?api_key=$_apiKey&sort_by=$sortBy';
+  Future<List<Map<String, dynamic>>> discoverMovies({int? genreId, String sortBy = 'popularity.desc', int page = 1}) async {
+    String urlStr = '$_baseUrl/discover/movie?api_key=$_apiKey&sort_by=$sortBy&page=$page';
     if (genreId != null) {
       urlStr += '&with_genres=$genreId';
     }
