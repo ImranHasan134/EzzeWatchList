@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'data/database/watch_provider.dart';
 import 'utils/app_theme.dart';
 import 'utils/theme_provider.dart';
-import 'ui/main_scaffold.dart';
+import 'ui/main/main_screen.dart';
 import 'ui/auth/login_screen.dart';
 
 void main() async {
@@ -63,7 +63,7 @@ class EzzeApp extends StatelessWidget {
 
           if (session != null) {
             // User is logged in! Send them to the main app
-            return const MainScaffold();
+            return const MainScreen();
           } else {
             // User is NOT logged in! Send them to the Login Screen
             return const LoginScreen();

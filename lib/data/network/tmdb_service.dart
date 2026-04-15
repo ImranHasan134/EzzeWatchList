@@ -36,104 +36,97 @@ class TmdbService {
     10765: 'Sci-Fi & Fantasy', 10766: 'Soap', 10767: 'Talk', 10768: 'War & Politics'
   };
 
+  // ── INTERNAL PARSER ──────────────────────────────────────────
+  Map<String, dynamic>? _parseItem(dynamic item, {String fallbackType = 'movie'}) {
+    final mediaType = item['media_type'] ?? fallbackType;
+    if (mediaType == 'person') return null;
+
+    final isMovie = mediaType == 'movie';
+    final posterPath = item['poster_path'];
+    final backdropPath = item['backdrop_path'];
+    final originalLang = item['original_language'] ?? '';
+
+    final List<dynamic> rawGenreIds = item['genre_ids'] ?? [];
+    final List<int> genreIds = rawGenreIds.map((e) => e as int).toList();
+    final List<String> genres = genreIds.map((id) => _genreMap[id]).whereType<String>().toList();
+
+    final isAnime = originalLang == 'ja' && genreIds.contains(16);
+    String category = isAnime ? (isMovie ? 'Anime Movie' : 'Anime Series') : (isMovie ? 'Movie' : 'Web Series');
+
+    return {
+      'title': isMovie ? (item['title'] ?? item['name']) : (item['name'] ?? item['title']),
+      'releaseYear': (isMovie ? item['release_date'] : item['first_air_date'])?.toString().split('-').first ?? '',
+      'description': item['overview'] ?? '',
+      'rating': (item['vote_average'] as num?)?.toDouble() ?? 0.0,
+      'posterPath': posterPath != null ? '$_imageBaseUrl$posterPath' : null,
+      'backdropPath': backdropPath != null ? '$_imageBaseUrl$backdropPath' : null, // 🆕 Used for big banners!
+      'category': category,
+      'genres': genres,
+      'tmdbId': item['id'],
+    };
+  }
+
+  // ── SEARCH ──────────────────────────────────────────────────
   Future<List<Map<String, dynamic>>> searchContent(String query) async {
     if (query.trim().isEmpty) return [];
-
     final url = Uri.parse('$_baseUrl/search/multi?api_key=$_apiKey&query=${Uri.encodeComponent(query)}');
-
     try {
       final response = await http.get(url);
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
-
-        return results.where((item) => item['media_type'] == 'movie' || item['media_type'] == 'tv').map((item) {
-          final isMovie = item['media_type'] == 'movie';
-          final posterPath = item['poster_path'];
-          final originalLang = item['original_language'] ?? ''; // 🆕 Grab original language
-
-          final List<dynamic> rawGenreIds = item['genre_ids'] ?? [];
-          final List<int> genreIds = rawGenreIds.map((e) => e as int).toList();
-          final List<String> genres = genreIds
-              .map((id) => _genreMap[id])
-              .whereType<String>()
-              .toList();
-
-          // ── 🆕 SMART ANIME DETECTION ────────────────────────────
-          // 16 is TMDB's ID for the 'Animation' genre
-          final isAnime = originalLang == 'ja' && genreIds.contains(16);
-
-          String category;
-          if (isAnime) {
-            category = isMovie ? 'Anime Movie' : 'Anime Series';
-          } else {
-            category = isMovie ? 'Movie' : 'Web Series';
-          }
-
-          return {
-            'title': isMovie ? item['title'] : item['name'],
-            'releaseYear': (isMovie ? item['release_date'] : item['first_air_date'])?.toString().split('-').first ?? '',
-            'description': item['overview'] ?? '',
-            'rating': (item['vote_average'] as num?)?.toDouble() ?? 0.0,
-            'posterPath': posterPath != null ? '$_imageBaseUrl$posterPath' : null,
-            'category': category, // 🆕 The smart category is applied here!
-            'genres': genres,
-            'tmdbId': item['id'],
-          };
-        }).toList();
+        return results.map((item) => _parseItem(item)).whereType<Map<String, dynamic>>().toList();
       }
-    } catch (e) {
-      print('TMDB Search Error: $e');
-    }
+    } catch (e) { print('TMDB Search Error: $e'); }
     return [];
   }
 
+  // ── 🆕 HOME SCREEN FEEDS ─────────────────────────────────────
+  Future<List<Map<String, dynamic>>> getTrending() async => _fetchList('$_baseUrl/trending/all/day?api_key=$_apiKey');
+  Future<List<Map<String, dynamic>>> getPopularMovies() async => _fetchList('$_baseUrl/movie/popular?api_key=$_apiKey', fallbackType: 'movie');
+  Future<List<Map<String, dynamic>>> getTopRatedShows() async => _fetchList('$_baseUrl/tv/top_rated?api_key=$_apiKey', fallbackType: 'tv');
+  Future<List<Map<String, dynamic>>> getAnime() async => _fetchList('$_baseUrl/discover/tv?api_key=$_apiKey&with_genres=16&with_original_language=ja', fallbackType: 'tv');
+
+  Future<List<Map<String, dynamic>>> _fetchList(String urlStr, {String fallbackType = 'movie'}) async {
+    try {
+      final response = await http.get(Uri.parse(urlStr));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = data['results'] ?? [];
+        return results.map((item) => _parseItem(item, fallbackType: fallbackType)).whereType<Map<String, dynamic>>().toList();
+      }
+    } catch (e) { print('TMDB Fetch List Error: $e'); }
+    return [];
+  }
+
+  // ── DETAILS & MEDIA ──────────────────────────────────────────
   Future<Map<String, int>> getTvSeasonEpisode(int tvId) async {
     final url = Uri.parse('$_baseUrl/tv/$tvId?api_key=$_apiKey');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return {
-          'seasons': data['number_of_seasons'] as int? ?? 0,
-          'episodes': data['number_of_episodes'] as int? ?? 0,
-        };
+        return {'seasons': data['number_of_seasons'] as int? ?? 0, 'episodes': data['number_of_episodes'] as int? ?? 0};
       }
-    } catch (e) {
-      print('TMDB TV Details Error: $e');
-    }
+    } catch (e) { print('TMDB TV Details Error: $e'); }
     return {};
   }
 
-  // ── Fetch Official YouTube Trailer ────────────────────────────
   Future<String?> getTrailerUrl(int tmdbId, bool isMovie) async {
     final type = isMovie ? 'movie' : 'tv';
     final url = Uri.parse('$_baseUrl/$type/$tmdbId/videos?api_key=$_apiKey');
-
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
-
-        // Find the first video that is explicitly a YouTube Trailer
-        final trailer = results.firstWhere(
-              (v) => v['site'] == 'YouTube' && v['type'] == 'Trailer',
-          orElse: () => null,
-        );
-
-        if (trailer != null) {
-          return 'https://www.youtube.com/watch?v=${trailer['key']}';
-        }
+        final trailer = results.firstWhere((v) => v['site'] == 'YouTube' && v['type'] == 'Trailer', orElse: () => null);
+        if (trailer != null) return 'https://www.youtube.com/watch?v=${trailer['key']}';
       }
-    } catch (e) {
-      print('TMDB Trailer Error: $e');
-    }
+    } catch (e) { print('TMDB Trailer Error: $e'); }
     return null;
   }
 
-  // ── Fetch Cast Members ──────────────────────────────────────────
   Future<List<CastMember>> getCast(int tmdbId, bool isMovie) async {
     final type = isMovie ? 'movie' : 'tv';
     final url = Uri.parse('$_baseUrl/$type/$tmdbId/credits?api_key=$_apiKey');
@@ -142,11 +135,19 @@ class TmdbService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List cast = data['cast'] ?? [];
-        return cast.take(10).map((c) => CastMember.fromJson(c)).toList(); // Get top 10 cast members
+        return cast.take(10).map((c) => CastMember.fromJson(c)).toList();
       }
-    } catch (e) {
-      print('TMDB Cast Error: $e');
-    }
+    } catch (e) { print('TMDB Cast Error: $e'); }
     return [];
   }
+
+  // ── 🆕 DYNAMIC DISCOVER (For Explore Screen) ──────────────────
+  Future<List<Map<String, dynamic>>> discoverMovies({int? genreId, String sortBy = 'popularity.desc'}) async {
+    String urlStr = '$_baseUrl/discover/movie?api_key=$_apiKey&sort_by=$sortBy';
+    if (genreId != null) {
+      urlStr += '&with_genres=$genreId';
+    }
+    return _fetchList(urlStr, fallbackType: 'movie');
+  }
+
 }

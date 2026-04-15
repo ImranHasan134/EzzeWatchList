@@ -1,14 +1,9 @@
 // lib/ui/home/home_screen.dart
 
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import '../../data/database/watch_provider.dart';
-import '../../data/models/watch_item.dart';
-import '../../widgets/poster_card.dart';
-import '../add_edit/add_edit_screen.dart';
-import '../detail/detail_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../data/network/tmdb_service.dart';
+import '../detail/global_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,237 +12,193 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _HomeScreenState extends State<HomeScreen> {
+  final TmdbService _tmdbService = TmdbService();
+
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _trending = [];
+  List<Map<String, dynamic>> _popularMovies = [];
+  List<Map<String, dynamic>> _topRatedShows = [];
+  List<Map<String, dynamic>> _animeList = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<WatchProvider>().loadAll();
-    });
+    _loadFeeds();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  Future<void> _loadFeeds() async {
+    // Fetch all categories simultaneously for maximum speed
+    final results = await Future.wait([
+      _tmdbService.getTrending(),
+      _tmdbService.getPopularMovies(),
+      _tmdbService.getTopRatedShows(),
+      _tmdbService.getAnime(),
+    ]);
+
+    if (mounted) {
+      setState(() {
+        _trending = results[0];
+        _popularMovies = results[1];
+        _topRatedShows = results[2];
+        _animeList = results[3];
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
-      child: Scaffold(
+    if (_isLoading) {
+      return Scaffold(
         backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
-        appBar: AppBar(
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
-          title: Row(
-            children: [
-              Container(
-                width: 3,
-                height: 22,
-                margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                  ),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'EzzeWatchList',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                    ).createShader(bounds),
-                    child: const Text(
-                      'Your Personal Watchlist',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white, letterSpacing: 0.5),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          // 🆕 Removed Search Action from here
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(52),
-            child: Container(
-              color: isDark ? const Color(0xFF141414) : Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: Container(
-                height: 42,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.07)),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicator: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)]),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [BoxShadow(color: const Color(0xFFFFD700).withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 2))],
-                  ),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  dividerColor: Colors.transparent,
-                  labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
-                  unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
-                  labelColor: const Color(0xFF1A1A1A),
-                  unselectedLabelColor: isDark ? Colors.white54 : Colors.black45,
-                  tabs: const [
-                    Tab(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.check_circle_rounded, size: 13), SizedBox(width: 4), Text('Watched')])),
-                    Tab(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.play_circle_rounded, size: 13), SizedBox(width: 4), Text('Watching')])),
-                    Tab(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.bookmark_rounded, size: 13), SizedBox(width: 4), Text('Planned')])),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        body: TabBarView(
-          controller: _tabController,
-          children: const [
-            _WatchListTab(status: WatchStatus.watched),
-            _WatchListTab(status: WatchStatus.watching),
-            _WatchListTab(status: WatchStatus.planned),
+        body: const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))),
+      );
+    }
+
+    final featuredItem = _trending.isNotEmpty ? _trending.first : null;
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 40),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── HERO BANNER (Featured Item) ──
+            if (featuredItem != null) _buildHeroBanner(featuredItem, isDark),
+
+            const SizedBox(height: 24),
+
+            // ── HORIZONTAL CAROUSELS ──
+            _buildCarousel('Trending Now', _trending.skip(1).toList(), isDark),
+            _buildCarousel('Popular Movies', _popularMovies, isDark),
+            _buildCarousel('Top Rated TV Shows', _topRatedShows, isDark),
+            _buildCarousel('Trending Anime', _animeList, isDark),
           ],
         ),
       ),
     );
   }
-}
 
-// ── Per-tab grid ──────────────────────────────────────────────────────────────
+  Widget _buildHeroBanner(Map<String, dynamic> item, bool isDark) {
+    // Prefer backdrop for wide images, fallback to poster
+    final imagePath = item['backdropPath'] ?? item['posterPath'];
+    final genres = (item['genres'] as List<String>).take(3).join(' • ');
 
-class _WatchListTab extends StatelessWidget {
-  final String status;
-  const _WatchListTab({required this.status});
+    return Stack(
+      alignment: Alignment.bottomCenter,
+      children: [
+        // Background Image
+        Container(
+          height: 450,
+          width: double.infinity,
+          foregroundDecoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.transparent,
+                isDark ? const Color(0xFF0E0E0E).withOpacity(0.8) : const Color(0xFFF5F5F5).withOpacity(0.8),
+                isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
+              ],
+              stops: const [0.4, 0.8, 1.0],
+            ),
+          ),
+          child: imagePath != null
+              ? CachedNetworkImage(imageUrl: imagePath, fit: BoxFit.cover)
+              : Container(color: Colors.grey.shade900),
+        ),
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final provider = context.watch<WatchProvider>();
-
-    final List<WatchItem> items = switch (status) {
-      WatchStatus.watched  => provider.watched,
-      WatchStatus.watching => provider.watching,
-      _                    => provider.planned,
-    };
-
-    if (items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 76,
-              height: 76,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [const Color(0xFFFFD700).withOpacity(0.15), const Color(0xFFFFA500).withOpacity(0.08)]),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: const Color(0xFFFFD700).withOpacity(0.3), width: 1.5),
+        // Text & Buttons
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Category badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFFFFD700).withOpacity(0.2), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFFD700))),
+                child: Text(item['category'] ?? 'Movie', style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10, fontWeight: FontWeight.bold)),
               ),
-              child: const Icon(Icons.movie_creation_outlined, size: 34, color: Color(0xFFFFD700)),
-            ),
-            const SizedBox(height: 16),
-            Text('Nothing here yet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : const Color(0xFF444444))),
-            const SizedBox(height: 5),
-            Text('Tap + to add something', style: TextStyle(fontSize: 12, color: isDark ? Colors.white38 : Colors.black38)),
-          ],
-        ),
-      );
-    }
+              const SizedBox(height: 12),
 
-    return CustomScrollView(
-      // 🆕 Removed the invalid padding line from here
-      slivers: [
-        // Shuffle Banner explicitly injected at the top of the Planned tab
-        if (status == WatchStatus.planned && items.isNotEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-              child: _buildShuffleBanner(context, items),
-            ),
-          ),
+              Text(item['title'] ?? '', textAlign: TextAlign.center, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, height: 1.1)),
+              const SizedBox(height: 8),
 
-        // 🆕 The Grid of Posters wrapped in a SliverPadding
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 90),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: 0.55,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-            ),
-            delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                final item = items[index];
-                return PosterCard(
-                  item: item,
-                  onTap: () async {
-                    await Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(itemId: item.id!)));
-                    if (context.mounted) context.read<WatchProvider>().loadAll();
-                  },
-                );
-              },
-              childCount: items.length,
-            ),
+              Text(genres, style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 16),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FilledButton.icon(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Global Detail Screen Coming in Phase 4!')));
+                    },
+                    icon: const Icon(Icons.play_arrow_rounded, color: Colors.black),
+                    label: const Text('Details', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFFD700), padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+                  ),
+                  const SizedBox(width: 16),
+                  IconButton.filledTonal(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Save to Watchlist coming soon!')));
+                    },
+                    icon: const Icon(Icons.add),
+                    style: IconButton.styleFrom(backgroundColor: isDark ? Colors.white24 : Colors.black12, padding: const EdgeInsets.all(12)),
+                  )
+                ],
+              )
+            ],
           ),
-        ),
+        )
       ],
     );
   }
 
-  Widget _buildShuffleBanner(BuildContext context, List<WatchItem> plannedItems) {
-    return InkWell(
-      onTap: () {
-        final randomIndex = Random().nextInt(plannedItems.length);
-        final randomItem = plannedItems[randomIndex];
-        Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(itemId: randomItem.id!)));
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: 80,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)]),
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildCarousel(String title, List<Map<String, dynamic>> items, bool isDark) {
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.shuffle, size: 28, color: Colors.black87),
-            SizedBox(width: 12),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Shuffle Planned List', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-                Text('Tap to pick a random title', style: TextStyle(fontSize: 12, color: Colors.black54)),
-              ],
-            ),
-          ],
+        SizedBox(
+          height: 200,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item)));
+                },
+                child: Container(
+                  width: 120,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: isDark ? Colors.grey.shade900 : Colors.grey.shade300),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: item['posterPath'] != null
+                        ? CachedNetworkImage(imageUrl: item['posterPath'], fit: BoxFit.cover)
+                        : const Center(child: Icon(Icons.movie, color: Colors.white54)),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
-      ),
+        const SizedBox(height: 16),
+      ],
     );
   }
 }

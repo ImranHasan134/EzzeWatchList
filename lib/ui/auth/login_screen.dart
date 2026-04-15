@@ -13,9 +13,9 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController(); // Only used for Sign Up
+  final _nameCtrl = TextEditingController();
 
-  bool _isLogin = true; // Toggle between Login and Sign Up
+  bool _isLogin = true;
   bool _isLoading = false;
 
   Future<void> _submitEmailAuth() async {
@@ -31,11 +31,10 @@ class _LoginScreenState extends State<LoginScreen> {
         final name = _nameCtrl.text.trim();
         await AuthService.signUpWithEmail(email, password, name);
       }
-      // Note: We don't need Navigator.push here because main.dart will auto-route us!
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+            SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -49,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Google Sign-In Failed'), backgroundColor: Colors.red));
+            const SnackBar(content: Text('Google Sign-In Failed'), backgroundColor: Colors.redAccent));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -59,85 +58,126 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final goldColor = const Color(0xFFFFD700);
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.movie_filter_rounded, size: 80, color: const Color(0xFFFFD700)),
-                const SizedBox(height: 16),
+                // ── LOGO ──
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: goldColor.withOpacity(0.1),
+                  ),
+                  child: Icon(Icons.movie_creation_rounded, size: 70, color: goldColor),
+                ),
+                const SizedBox(height: 24),
                 Text(
                   'EzzeWatchList',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 1.2, color: isDark ? Colors.white : Colors.black),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 8),
+                Text(
+                  _isLogin ? 'Welcome back to your theater' : 'Start your cinematic journey',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 48),
 
+                // ── INPUT FIELDS ──
                 if (!_isLogin) ...[
-                  TextField(
-                    controller: _nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Full Name', border: OutlineInputBorder()),
-                  ),
+                  _buildTextField(controller: _nameCtrl, label: 'Full Name', icon: Icons.person_outline, isDark: isDark),
                   const SizedBox(height: 16),
                 ],
 
-                TextField(
-                  controller: _emailCtrl,
-                  decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
-                  keyboardType: TextInputType.emailAddress,
-                ),
+                _buildTextField(controller: _emailCtrl, label: 'Email Address', icon: Icons.email_outlined, isDark: isDark, isEmail: true),
                 const SizedBox(height: 16),
 
-                TextField(
-                  controller: _passwordCtrl,
-                  decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder()),
-                  obscureText: true,
-                ),
-                const SizedBox(height: 24),
+                _buildTextField(controller: _passwordCtrl, label: 'Password', icon: Icons.lock_outline, isDark: isDark, isPassword: true),
+                const SizedBox(height: 32),
 
+                // ── AUTH BUTTONS ──
                 _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)))
+                    ? Center(child: CircularProgressIndicator(color: goldColor))
                     : FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFD700),
+                    backgroundColor: goldColor,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 4,
                   ),
                   onPressed: _submitEmailAuth,
-                  child: Text(_isLogin ? 'Sign In' : 'Sign Up', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: Text(_isLogin ? 'Sign In' : 'Create Account', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
+
+                const SizedBox(height: 16),
 
                 TextButton(
                   onPressed: () => setState(() => _isLogin = !_isLogin),
-                  child: Text(_isLogin ? 'Need an account? Sign Up' : 'Already have an account? Sign In'),
+                  child: Text(
+                    _isLogin ? 'New here? Sign Up' : 'Already have an account? Sign In',
+                    style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+                  ),
                 ),
 
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
                   child: Row(
                     children: [
-                      Expanded(child: Divider()),
-                      Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('OR')),
-                      Expanded(child: Divider()),
+                      Expanded(child: Divider(color: isDark ? Colors.white24 : Colors.black12)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text('OR', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      Expanded(child: Divider(color: isDark ? Colors.white24 : Colors.black12)),
                     ],
                   ),
                 ),
 
                 OutlinedButton.icon(
                   onPressed: _isLoading ? null : _submitGoogleAuth,
-                  icon: const Icon(Icons.g_mobiledata_rounded, size: 30),
-                  label: const Text('Continue with Google'),
-                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                  icon: Image.network('https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg', height: 24), // Official Google Logo
+                  label: const Text('Continue with Google', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    foregroundColor: isDark ? Colors.white : Colors.black,
+                    side: BorderSide(color: isDark ? Colors.white24 : Colors.black26),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // Helper widget for clean text fields
+  Widget _buildTextField({required TextEditingController controller, required String label, required IconData icon, required bool isDark, bool isPassword = false, bool isEmail = false}) {
+    return TextField(
+      controller: controller,
+      obscureText: isPassword,
+      keyboardType: isEmail ? TextInputType.emailAddress : TextInputType.text,
+      style: TextStyle(color: isDark ? Colors.white : Colors.black),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.grey),
+        prefixIcon: Icon(icon, color: Colors.grey),
+        filled: true,
+        fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFFFD700), width: 1.5)),
       ),
     );
   }

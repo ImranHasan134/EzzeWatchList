@@ -3,7 +3,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart'; // 🆕 Import the new player
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/database/watch_provider.dart';
 import '../../data/models/watch_item.dart';
@@ -21,9 +21,10 @@ class DetailScreen extends StatefulWidget {
 
 class _DetailScreenState extends State<DetailScreen> {
   WatchItem? _item;
-  String? _trailerUrl;
   List<CastMember> _castMembers = [];
   bool _isFetchingExtras = false;
+
+  YoutubePlayerController? _ytController; // 🆕 Controller for the inline player
 
   @override
   void initState() {
@@ -31,20 +32,25 @@ class _DetailScreenState extends State<DetailScreen> {
     _loadItem();
   }
 
+  @override
+  void dispose() {
+    _ytController?.dispose(); // 🆕 Always dispose the controller to prevent memory leaks
+    super.dispose();
+  }
+
   Future<void> _loadItem() async {
     final item = await context.read<WatchProvider>().getItemById(widget.itemId);
     if (mounted && item != null) {
       setState(() {
         _item = item;
-        _trailerUrl = null;
         _castMembers = [];
-        _isFetchingExtras = true; // 🟢 Start the loading spinner!
+        _isFetchingExtras = true;
       });
 
       int? activeTmdbId = item.tmdbId;
 
       try {
-        // ── AUTO-HEAL: Fix old movies ──────────
+        // ── AUTO-HEAL: Fix old movies ──
         if (activeTmdbId == null) {
           final searchResults = await TmdbService().searchContent(item.title);
           if (searchResults.isNotEmpty) {
@@ -64,73 +70,64 @@ class _DetailScreenState extends State<DetailScreen> {
           }
         }
 
-        // ── 🚀 FETCH IN PARALLEL ──────────
+        // ── FETCH TRAILER & CAST IN PARALLEL ──
         if (activeTmdbId != null) {
-          final isMovie = item.category == Category.movie;
-
-          // Fire both API calls at the exact same time!
+          final isMovie = item.category == Category.movie || item.category == 'Anime Movie';
           final results = await Future.wait([
             TmdbService().getTrailerUrl(activeTmdbId, isMovie),
             TmdbService().getCast(activeTmdbId, isMovie),
           ]);
 
           if (mounted) {
+            final trailerUrl = results[0] as String?;
+
+            // 🆕 Initialize the YouTube Player if a trailer exists
+            if (trailerUrl != null) {
+              final videoId = YoutubePlayer.convertUrlToId(trailerUrl);
+              if (videoId != null) {
+                _ytController = YoutubePlayerController(
+                  initialVideoId: videoId,
+                  flags: const YoutubePlayerFlags(
+                    autoPlay: false, // Don't blast audio immediately
+                    mute: false,
+                    disableDragSeek: false,
+                    loop: false,
+                    isLive: false,
+                    forceHD: true,
+                  ),
+                );
+              }
+            }
+
             setState(() {
-              _trailerUrl = results[0] as String?;
               _castMembers = results[1] as List<CastMember>;
             });
           }
         }
       } finally {
-        if (mounted) {
-          setState(() {
-            _isFetchingExtras = false; // 🔴 Stop the loading spinner!
-          });
-        }
+        if (mounted) setState(() => _isFetchingExtras = false);
       }
     }
   }
-  // ── UPGRADED STATUS LOGIC WITH ERROR HANDLING ────────
+
+  // ── STATUS LOGIC ──
   Future<void> _changeStatus(String newStatus) async {
     if (_item == null) return;
-
     try {
       final updatedItem = WatchItem(
-        id: _item!.id,
-        title: _item!.title,
-        category: _item!.category,
-        genres: _item!.genres,
-        releaseYear: _item!.releaseYear,
-        description: _item!.description,
-        rating: _item!.rating,
-        status: newStatus,
-        posterPath: _item!.posterPath,
-        seasons: _item!.seasons,
-        episodes: _item!.episodes,
-        createdAt: _item!.createdAt,
-        hindiAvailable: _item!.hindiAvailable,
-        watchSource: _item!.watchSource,
-        tmdbId: _item!.tmdbId,
+        id: _item!.id, title: _item!.title, category: _item!.category,
+        genres: _item!.genres, releaseYear: _item!.releaseYear,
+        description: _item!.description, rating: _item!.rating,
+        status: newStatus, posterPath: _item!.posterPath,
+        seasons: _item!.seasons, episodes: _item!.episodes,
+        createdAt: _item!.createdAt, hindiAvailable: _item!.hindiAvailable,
+        watchSource: _item!.watchSource, tmdbId: _item!.tmdbId,
       );
-
-      // Update the database & cloud
       await context.read<WatchProvider>().updateItem(updatedItem);
-
-      // Refresh the UI
       await _loadItem();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Status updated to $newStatus!'), backgroundColor: Colors.green),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Status updated to $newStatus!'), backgroundColor: Colors.green));
     } catch (e) {
-      print('Status Update Error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update: $e'), backgroundColor: Colors.redAccent),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update: $e'), backgroundColor: Colors.redAccent));
     }
   }
 
@@ -142,7 +139,7 @@ class _DetailScreenState extends State<DetailScreen> {
         content: Text('Delete "${_item!.title}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+          FilledButton(style: FilledButton.styleFrom(backgroundColor: Colors.redAccent), onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
         ],
       ),
     );
@@ -154,35 +151,27 @@ class _DetailScreenState extends State<DetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_item == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    if (_item == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     final item = _item!;
-    final showSeasonEp = item.category == Category.webSeries || item.category == Category.animeSeries;
+    final showSeasonEp = item.category == 'Web Series' || item.category == 'Anime Series';
     final genreDisplay = item.genres.replaceAll(',', ' • ');
-    final isHindi = (item.hindiAvailable ?? 'No') == 'Yes';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 260,
             pinned: true,
+            backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 fit: StackFit.expand,
                 children: [
                   _buildPoster(item),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black54],
-                      ),
-                    ),
-                  ),
+                  DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5)]))),
                 ],
               ),
             ),
@@ -193,40 +182,52 @@ class _DetailScreenState extends State<DetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text(item.title, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 8),
 
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
+                    spacing: 8, runSpacing: 4,
                     children: [
                       _StatusChip(status: item.status),
                       Text(item.category, style: const TextStyle(color: Colors.grey)),
                       if (item.releaseYear.isNotEmpty) Text('· ${item.releaseYear}', style: const TextStyle(color: Colors.grey)),
-                      if (isHindi) const Text('· Hindi', style: TextStyle(color: Colors.green)),
+                      if ((item.hindiAvailable ?? 'No') == 'Yes') const Text('· Hindi', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                     ],
                   ),
-
                   const SizedBox(height: 12),
 
                   Row(
                     children: [
-                      const Icon(Icons.star, color: AppTheme.ratingGold, size: 20),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${item.rating.toStringAsFixed(1)} / 10',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
-                      ),
+                      const Icon(Icons.star, color: Color(0xFFFFD700), size: 22),
+                      const SizedBox(width: 6),
+                      Text('${item.rating.toStringAsFixed(1)} / 10', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     ],
                   ),
-
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
                   if (genreDisplay.isNotEmpty) ...[
-                    const Text('GENRES', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey, letterSpacing: 1)),
-                    const SizedBox(height: 4),
-                    Text(genreDisplay, style: const TextStyle(fontSize: 14)),
+                    Text(genreDisplay, style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 16),
+                  ],
+
+                  // ── 🆕 INLINE YOUTUBE PLAYER ──
+                  if (_isFetchingExtras)
+                    const Padding(padding: EdgeInsets.symmetric(vertical: 30), child: Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))))
+                  else if (_ytController != null) ...[
+                    const Text('OFFICIAL TRAILER', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: YoutubePlayer(
+                        controller: _ytController!,
+                        showVideoProgressIndicator: true,
+                        progressColors: const ProgressBarColors(
+                          playedColor: Color(0xFFFFD700),
+                          handleColor: Color(0xFFFFD700),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                   ],
 
                   if (showSeasonEp) ...[
@@ -240,162 +241,67 @@ class _DetailScreenState extends State<DetailScreen> {
                     const SizedBox(height: 16),
                   ],
 
-                  const Text('DESCRIPTION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey, letterSpacing: 1)),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.description.isNotEmpty ? item.description : 'No description.',
-                    style: const TextStyle(fontSize: 14, height: 1.5),
-                  ),
+                  const Text('STORYLINE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  Text(item.description.isNotEmpty ? item.description : 'No description available.', style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.white70)),
+                  const SizedBox(height: 24),
 
-                  const SizedBox(height: 16),
-
-                  if ((item.watchSource ?? '').isNotEmpty)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('WATCH ON', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey, letterSpacing: 1)),
-                        const SizedBox(height: 6),
-                        Container(
-                          height: 50,
-                          width: 130,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).cardColor,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0, 3))],
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                            leading: _platformLogo(item.watchSource!),
-                            title: Text(item.watchSource!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                            dense: true,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
+                  if ((item.watchSource ?? '').isNotEmpty) ...[
+                    const Text('AVAILABLE ON', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _platformLogo(item.watchSource!),
+                          const SizedBox(width: 12),
+                          Text(item.watchSource!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        ],
+                      ),
                     ),
+                    const SizedBox(height: 24),
+                  ],
 
-                  // ── STATUS ACTION BUTTONS (Start Watching / Mark Watched) ────────
+                  // ── ACTION BUTTONS ──
                   if (item.status == WatchStatus.planned) ...[
                     Row(
                       children: [
-                        Expanded(
-                          child: FilledButton.icon(
-                            onPressed: () => _changeStatus(WatchStatus.watching),
-                            icon: const Icon(Icons.play_arrow),
-                            label: const Text('Start Watching'),
-                            style: FilledButton.styleFrom(backgroundColor: Colors.blue),
-                          ),
-                        ),
+                        Expanded(child: FilledButton.icon(onPressed: () => _changeStatus(WatchStatus.watching), icon: const Icon(Icons.play_arrow), label: const Text('Start Watching'), style: FilledButton.styleFrom(backgroundColor: Colors.blue, padding: const EdgeInsets.symmetric(vertical: 12)))),
                         const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton.icon(
-                            onPressed: () => _changeStatus(WatchStatus.watched),
-                            icon: const Icon(Icons.check),
-                            label: const Text('Mark Watched'),
-                            style: FilledButton.styleFrom(backgroundColor: Colors.green),
-                          ),
-                        ),
+                        Expanded(child: FilledButton.icon(onPressed: () => _changeStatus(WatchStatus.watched), icon: const Icon(Icons.check), label: const Text('Mark Watched'), style: FilledButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 12)))),
                       ],
                     ),
                     const SizedBox(height: 16),
                   ] else if (item.status == WatchStatus.watching) ...[
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () => _changeStatus(WatchStatus.watched),
-                        icon: const Icon(Icons.check),
-                        label: const Text('Mark as Finished'),
-                        style: FilledButton.styleFrom(backgroundColor: Colors.green),
-                      ),
-                    ),
+                    SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () => _changeStatus(WatchStatus.watched), icon: const Icon(Icons.check), label: const Text('Mark as Finished'), style: FilledButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 14)))),
                     const SizedBox(height: 16),
                   ],
 
-                  // ── 🆕 TMDB LOADING SPINNER ──────────
-                  if (_isFetchingExtras)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(
-                        child: CircularProgressIndicator(color: Color(0xFFFFD700)),
-                      ),
-                    ),
-
-                  // ── TRAILER BUTTON ──────────
-                  if (_trailerUrl != null)
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () async {
-                          final uri = Uri.parse(_trailerUrl!);
-                          // 🆕 mode: LaunchMode.externalApplication forces the native YouTube app to open!
-                          if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Could not open YouTube')),
-                              );
-                            }
-                          }
-                        },
-                        icon: const Icon(Icons.play_circle_fill),
-                        label: const Text('Watch Trailer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF0000), // YouTube Red
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-
-                  // ── CAST SECTION ──────────
                   if (_castMembers.isNotEmpty) ...[
-                    const Text('TOP CAST', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey, letterSpacing: 1)),
-                    const SizedBox(height: 8),
+                    const Text('TOP CAST', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
+                    const SizedBox(height: 12),
                     SizedBox(
-                      height: 130,
+                      height: 120,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         itemCount: _castMembers.length,
-                        itemBuilder: (context, index) {
-                          final member = _castMembers[index];
-                          return _buildCastCard(member);
-                        },
+                        itemBuilder: (context, index) => _buildCastCard(_castMembers[index]),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                   ],
 
-                  // ── Edit / Delete Buttons ──────────
+                  // ── Edit / Delete ──
                   Row(
                     children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => AddEditScreen(itemId: item.id)),
-                            );
-                            _loadItem();
-                          },
-                          icon: const Icon(Icons.edit, color: Color(0xFFFFD700)),
-                          label: const Text('Edit', style: TextStyle(color: Color(0xFFFFD700))),
-                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFFFD700))),
-                        ),
-                      ),
+                      Expanded(child: OutlinedButton.icon(onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => AddEditScreen(itemId: item.id))); _loadItem(); }, icon: const Icon(Icons.edit, color: Color(0xFFFFD700)), label: const Text('Edit', style: TextStyle(color: Color(0xFFFFD700))), style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFFFD700)), padding: const EdgeInsets.symmetric(vertical: 12)))),
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _delete,
-                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                          label: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
-                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent)),
-                        ),
-                      ),
+                      Expanded(child: OutlinedButton.icon(onPressed: _delete, icon: const Icon(Icons.delete_outline, color: Colors.redAccent), label: const Text('Delete', style: TextStyle(color: Colors.redAccent)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent), padding: const EdgeInsets.symmetric(vertical: 12)))),
                     ],
                   ),
-
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -405,70 +311,36 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  // ── HELPER METHODS ─────────────────────────────────────
-
+  // ── HELPER METHODS ──
   Widget _buildPoster(WatchItem item) {
     if (item.posterPath != null && item.posterPath!.isNotEmpty) {
-      if (item.posterPath!.startsWith('http')) {
-        return CachedNetworkImage(
-          imageUrl: item.posterPath!,
-          fit: BoxFit.cover,
-          errorWidget: (_, __, ___) => _posterPlaceholder(),
-        );
-      }
-      else {
-        return Image.file(File(item.posterPath!),
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _posterPlaceholder());
-      }
+      if (item.posterPath!.startsWith('http')) return CachedNetworkImage(imageUrl: item.posterPath!, fit: BoxFit.cover, alignment: Alignment.topCenter);
+      else return Image.file(File(item.posterPath!), fit: BoxFit.cover, alignment: Alignment.topCenter);
     }
-    return _posterPlaceholder();
+    return Container(color: Colors.grey.shade900, child: const Icon(Icons.movie, size: 80, color: Colors.white24));
   }
 
-  Widget _posterPlaceholder() => Container(
-    color: Colors.grey.shade400,
-    child: const Icon(Icons.movie, size: 80, color: Colors.white54),
-  );
-
   Widget _platformLogo(String platform) {
-    const logoMap = {
-      'MLWBD': 'assets/platform/logo/mlwbd.png',
-      'MovieBox': 'assets/platform/logo/moviebox.png',
-      'HiAnime': 'assets/platform/logo/hianime.png',
-    };
-
+    const logoMap = {'MLWBD': 'assets/platform/logo/mlwbd.png', 'MovieBox': 'assets/platform/logo/moviebox.png', 'HiAnime': 'assets/platform/logo/hianime.png'};
     final path = logoMap[platform];
-
-    if (path != null) {
-      return Image.asset(
-        path,
-        width: 25,
-        height: 25,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) =>
-        const Icon(Icons.play_circle_fill, size: 25),
-      );
-    }
-
-    return const Icon(Icons.play_circle_fill, size: 25);
+    if (path != null) return Image.asset(path, width: 24, height: 24, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.play_circle_fill, size: 24));
+    return const Icon(Icons.play_circle_fill, size: 24);
   }
 
   Widget _buildCastCard(CastMember member) {
     return Container(
-      width: 80,
-      margin: const EdgeInsets.only(right: 12),
+      width: 75,
+      margin: const EdgeInsets.only(right: 16),
       child: Column(
         children: [
           CircleAvatar(
-            radius: 35,
-            backgroundImage: member.profilePath != null
-                ? CachedNetworkImageProvider('https://image.tmdb.org/t/p/w200${member.profilePath}')
-                : null,
-            child: member.profilePath == null ? const Icon(Icons.person, size: 35) : null,
+            radius: 32,
+            backgroundColor: Colors.grey.shade800,
+            backgroundImage: member.profilePath != null ? CachedNetworkImageProvider('https://image.tmdb.org/t/p/w200${member.profilePath}') : null,
+            child: member.profilePath == null ? const Icon(Icons.person, size: 30, color: Colors.white54) : null,
           ),
-          const SizedBox(height: 6),
-          Text(member.name, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-          Text(member.character, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          const SizedBox(height: 8),
+          Text(member.name, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, height: 1.1)),
         ],
       ),
     );
@@ -478,25 +350,10 @@ class _DetailScreenState extends State<DetailScreen> {
 class _StatusChip extends StatelessWidget {
   final String status;
   const _StatusChip({required this.status});
-
-  Color get _color => switch (status) {
-    WatchStatus.watched => Colors.green,
-    WatchStatus.watching => Colors.blue,
-    _ => Colors.orange,
-  };
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: _color,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(status,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-    );
+    Color color = status == WatchStatus.watched ? Colors.green : status == WatchStatus.watching ? Colors.blue : Colors.orange;
+    return Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.2), borderRadius: BorderRadius.circular(12), border: Border.all(color: color)), child: Text(status, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)));
   }
 }
 
@@ -504,24 +361,8 @@ class _StatCard extends StatelessWidget {
   final String label;
   final String value;
   const _StatCard({required this.label, required this.value});
-
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Column(
-          children: [
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 11, color: Colors.grey, letterSpacing: 1)),
-            const SizedBox(height: 4),
-            Text(value,
-                style: const TextStyle(
-                    fontSize: 24, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
-    );
+    return Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05), borderRadius: BorderRadius.circular(12)), child: Column(children: [Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, letterSpacing: 1, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))]));
   }
 }
