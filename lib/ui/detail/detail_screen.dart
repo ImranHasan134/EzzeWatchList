@@ -241,11 +241,21 @@ class _DetailScreenState extends State<DetailScreen> {
                     const SizedBox(height: 16),
                   ],
 
-                  const Text('STORYLINE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
+                  const Text(
+                      'STORYLINE',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)
+                  ),
                   const SizedBox(height: 8),
-                  Text(item.description.isNotEmpty ? item.description : 'No description available.', style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.white70)),
+                  Text(
+                      item.description.isNotEmpty ? item.description : 'No description available.',
+                      style: TextStyle( // 🔴 Removed 'const' because the color is now dynamic
+                        fontSize: 14,
+                        height: 1.5,
+                        // 🆕 This makes the description readable in both themes
+                        color: isDark ? Colors.white : Colors.black,
+                      )
+                  ),
                   const SizedBox(height: 24),
-
                   if ((item.watchSource ?? '').isNotEmpty) ...[
                     const Text('AVAILABLE ON', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
                     const SizedBox(height: 8),

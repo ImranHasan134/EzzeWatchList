@@ -288,11 +288,16 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
                   const SizedBox(height: 32),
 
                   // ── OVERVIEW ──
+                  // Find the Overview section inside the build method
                   const Text('Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Text(
                     item['description']?.isNotEmpty == true ? item['description'] : 'No description available.',
-                    style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
                   ),
                   const SizedBox(height: 32),
 
