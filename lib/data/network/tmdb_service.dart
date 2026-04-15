@@ -141,6 +141,14 @@ class TmdbService {
     return [];
   }
 
+  // ── 🆕 FETCH SIMILAR CONTENT ─────────────────────────────────────
+  Future<List<Map<String, dynamic>>> getSimilar(int tmdbId, bool isMovie) async {
+    final type = isMovie ? 'movie' : 'tv';
+    // TMDB has a specific endpoint for this!
+    return _fetchList('$_baseUrl/$type/$tmdbId/similar?api_key=$_apiKey', fallbackType: type);
+  }
+
+
   // ── 🆕 DYNAMIC DISCOVER (For Explore Screen) ──────────────────
   Future<List<Map<String, dynamic>>> discoverMovies({int? genreId, String sortBy = 'popularity.desc'}) async {
     String urlStr = '$_baseUrl/discover/movie?api_key=$_apiKey&sort_by=$sortBy';

@@ -1,9 +1,10 @@
 // lib/ui/home/home_screen.dart
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/network/tmdb_service.dart';
-import '../detail/global_detail_screen.dart';
+import '../detail/global_detail_screen.dart'; // 🆕 Imported the global detail screen!
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,14 +22,25 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _topRatedShows = [];
   List<Map<String, dynamic>> _animeList = [];
 
+  // ── 🆕 CAROUSEL CONTROLLERS ──
+  final PageController _pageController = PageController();
+  Timer? _carouselTimer;
+  int _currentCarouselIndex = 0;
+
   @override
   void initState() {
     super.initState();
     _loadFeeds();
   }
 
+  @override
+  void dispose() {
+    _carouselTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadFeeds() async {
-    // Fetch all categories simultaneously for maximum speed
     final results = await Future.wait([
       _tmdbService.getTrending(),
       _tmdbService.getPopularMovies(),
@@ -44,7 +56,26 @@ class _HomeScreenState extends State<HomeScreen> {
         _animeList = results[3];
         _isLoading = false;
       });
+      _startCarousel(); // 🆕 Start the merry-go-round!
     }
+  }
+
+  // ── 🆕 AUTO-SCROLL LOGIC ──
+  void _startCarousel() {
+    _carouselTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (_pageController.hasClients && _trending.isNotEmpty) {
+        int nextIndex = _currentCarouselIndex + 1;
+        // Limit to top 10
+        if (nextIndex >= 10 || nextIndex >= _trending.length) {
+          nextIndex = 0;
+        }
+        _pageController.animateToPage(
+          nextIndex,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.fastOutSlowIn,
+        );
+      }
+    });
   }
 
   @override
@@ -58,8 +89,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final featuredItem = _trending.isNotEmpty ? _trending.first : null;
-
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
       body: SingleChildScrollView(
@@ -67,13 +96,13 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── HERO BANNER (Featured Item) ──
-            if (featuredItem != null) _buildHeroBanner(featuredItem, isDark),
+            // ── 🆕 HERO CAROUSEL ──
+            _buildHeroCarousel(isDark),
 
             const SizedBox(height: 24),
 
             // ── HORIZONTAL CAROUSELS ──
-            _buildCarousel('Trending Now', _trending.skip(1).toList(), isDark),
+            _buildCarousel('Trending Now', _trending.skip(10).toList(), isDark), // Skip the top 10 since they are in the banner
             _buildCarousel('Popular Movies', _popularMovies, isDark),
             _buildCarousel('Top Rated TV Shows', _topRatedShows, isDark),
             _buildCarousel('Trending Anime', _animeList, isDark),
@@ -83,83 +112,109 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHeroBanner(Map<String, dynamic> item, bool isDark) {
-    // Prefer backdrop for wide images, fallback to poster
-    final imagePath = item['backdropPath'] ?? item['posterPath'];
-    final genres = (item['genres'] as List<String>).take(3).join(' • ');
+  // ── 🆕 UPGRADED HERO CAROUSEL UI ──
+  // ── UPGRADED HERO CAROUSEL UI (Fixed Dots) ──
+  Widget _buildHeroCarousel(bool isDark) {
+    // Grab the top 10 items
+    final topItems = _trending.take(10).toList();
+    if (topItems.isEmpty) return const SizedBox.shrink();
 
-    return Stack(
-      alignment: Alignment.bottomCenter,
-      children: [
-        // Background Image
-        Container(
-          height: 450,
-          width: double.infinity,
-          foregroundDecoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.transparent,
-                isDark ? const Color(0xFF0E0E0E).withOpacity(0.8) : const Color(0xFFF5F5F5).withOpacity(0.8),
-                isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
-              ],
-              stops: const [0.4, 0.8, 1.0],
+    return SizedBox(
+      height: 480,
+      child: Stack( // 🆕 Outer Stack keeps the dots static!
+        children: [
+          // 1. The Sliding Images
+          PageView.builder(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() => _currentCarouselIndex = index);
+            },
+            itemCount: topItems.length,
+            itemBuilder: (context, index) {
+              final item = topItems[index];
+              final imagePath = item['backdropPath'] ?? item['posterPath'];
+              final genres = (item['genres'] as List<String>).take(3).join(' • ');
+
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item)));
+                },
+                child: Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    // Background Image
+                    Container(
+                      height: 480,
+                      width: double.infinity,
+                      foregroundDecoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            isDark ? const Color(0xFF0E0E0E).withOpacity(0.8) : const Color(0xFFF5F5F5).withOpacity(0.8),
+                            isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
+                          ],
+                          stops: const [0.4, 0.85, 1.0],
+                        ),
+                      ),
+                      child: imagePath != null
+                          ? CachedNetworkImage(imageUrl: imagePath, fit: BoxFit.cover)
+                          : Container(color: Colors.grey.shade900),
+                    ),
+
+                    // Text Overlay
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 40), // 🆕 Added bottom padding to lift text above dots
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(color: const Color(0xFFFFD700).withOpacity(0.2), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFFD700))),
+                            child: Text(item['category'] ?? 'Movie', style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10, fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(height: 12),
+
+                          Text(item['title'] ?? '', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, height: 1.1)),
+                          const SizedBox(height: 8),
+
+                          Text(genres, style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    )
+                  ],
+                ),
+              );
+            },
+          ),
+
+          // 2. 🆕 The Static Dots (Pinned to the bottom)
+          Positioned(
+            bottom: 12,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(topItems.length, (dotIndex) {
+                return AnimatedContainer( // 🆕 Makes the dot width change buttery smooth
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: _currentCarouselIndex == dotIndex ? 16 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: _currentCarouselIndex == dotIndex ? const Color(0xFFFFD700) : Colors.grey.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                );
+              }),
             ),
           ),
-          child: imagePath != null
-              ? CachedNetworkImage(imageUrl: imagePath, fit: BoxFit.cover)
-              : Container(color: Colors.grey.shade900),
-        ),
-
-        // Text & Buttons
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Category badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: const Color(0xFFFFD700).withOpacity(0.2), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFFD700))),
-                child: Text(item['category'] ?? 'Movie', style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(height: 12),
-
-              Text(item['title'] ?? '', textAlign: TextAlign.center, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, height: 1.1)),
-              const SizedBox(height: 8),
-
-              Text(genres, style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 16),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  FilledButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Global Detail Screen Coming in Phase 4!')));
-                    },
-                    icon: const Icon(Icons.play_arrow_rounded, color: Colors.black),
-                    label: const Text('Details', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFFD700), padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
-                  ),
-                  const SizedBox(width: 16),
-                  IconButton.filledTonal(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Save to Watchlist coming soon!')));
-                    },
-                    icon: const Icon(Icons.add),
-                    style: IconButton.styleFrom(backgroundColor: isDark ? Colors.white24 : Colors.black12, padding: const EdgeInsets.all(12)),
-                  )
-                ],
-              )
-            ],
-          ),
-        )
-      ],
+        ],
+      ),
     );
   }
-
+  // ── REUSABLE HORIZONTAL CAROUSEL ──
   Widget _buildCarousel(String title, List<Map<String, dynamic>> items, bool isDark) {
     if (items.isEmpty) return const SizedBox.shrink();
 
@@ -183,7 +238,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item)));
                 },
                 child: Container(
-                  width: 120,
+                  width: 130, // Slightly wider posters
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: isDark ? Colors.grey.shade900 : Colors.grey.shade300),
                   child: ClipRRect(

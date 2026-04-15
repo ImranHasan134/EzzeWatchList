@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import '../home/home_screen.dart';
 import '../explore/explore_screen.dart';
-import '../search/search_screen.dart';
 import '../watchlist/watchlist_screen.dart';
 import '../profile/profile_screen.dart';
 
@@ -15,14 +14,13 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 3; // Default to Watchlist (Index 3) for now so you can see your old data!
+  int _currentIndex = 0; // Defaults to Home
 
   final List<Widget> _screens = const [
     HomeScreen(),       // 0
-    ExploreScreen(),    // 1
-    SearchScreen(),     // 2
-    WatchlistScreen(),  // 3 (Your old Home Screen)
-    ProfileScreen(),    // 4
+    ExploreScreen(),    // 1 (Now handles Search AND Explore)
+    WatchlistScreen(),  // 2
+    ProfileScreen(),    // 3
   ];
 
   @override
@@ -52,8 +50,7 @@ class _MainScreenState extends State<MainScreen> {
           elevation: 0,
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
-            BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
+            BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'), // Combined Tab
             BottomNavigationBarItem(icon: Icon(Icons.bookmark), label: 'Watchlist'),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],

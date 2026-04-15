@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../database/db_helper.dart';
 import '../models/watch_item.dart';
 import '../network/sync_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class WatchProvider extends ChangeNotifier {
   final DbHelper _db = DbHelper();
@@ -134,5 +135,36 @@ class WatchProvider extends ChangeNotifier {
     }
     if (counts.isEmpty) return null;
     return counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+  }
+// ── 🆕 AUTO-SYNC: THE CLOUD IS THE BOSS ──
+  // ── 🆕 AUTO-SYNC: THE CLOUD IS THE BOSS ──
+  Future<void> autoSyncWithCloud() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      // 1. Download the absolute latest truth from Supabase
+      final cloudData = await Supabase.instance.client
+          .from('watch_items')
+          .select()
+          .eq('user_id', user.id);
+
+      // 2. Wipe the local SQLite table COMPLETELY clean (Goodbye ghosts)
+      final db = await _db.database; // 🔴 FIXED THIS LINE
+      await db.delete('watch_items');
+
+      // 3. Re-insert all the fresh data from the cloud
+      for (var json in cloudData) {
+        // Convert Supabase JSON back to your WatchItem model
+        final item = WatchItem.fromMap(json);
+        await db.insert('watch_items', item.toMap());
+      }
+
+      // 4. Reload the UI instantly
+      await loadAll();
+
+    } catch (e) {
+      print('Auto Sync Failed: $e');
+    }
   }
 }
