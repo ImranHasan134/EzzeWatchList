@@ -51,12 +51,25 @@ class TmdbService {
         return results.where((item) => item['media_type'] == 'movie' || item['media_type'] == 'tv').map((item) {
           final isMovie = item['media_type'] == 'movie';
           final posterPath = item['poster_path'];
+          final originalLang = item['original_language'] ?? ''; // 🆕 Grab original language
 
-          final List<dynamic> genreIds = item['genre_ids'] ?? [];
+          final List<dynamic> rawGenreIds = item['genre_ids'] ?? [];
+          final List<int> genreIds = rawGenreIds.map((e) => e as int).toList();
           final List<String> genres = genreIds
               .map((id) => _genreMap[id])
               .whereType<String>()
               .toList();
+
+          // ── 🆕 SMART ANIME DETECTION ────────────────────────────
+          // 16 is TMDB's ID for the 'Animation' genre
+          final isAnime = originalLang == 'ja' && genreIds.contains(16);
+
+          String category;
+          if (isAnime) {
+            category = isMovie ? 'Anime Movie' : 'Anime Series';
+          } else {
+            category = isMovie ? 'Movie' : 'Web Series';
+          }
 
           return {
             'title': isMovie ? item['title'] : item['name'],
@@ -64,9 +77,9 @@ class TmdbService {
             'description': item['overview'] ?? '',
             'rating': (item['vote_average'] as num?)?.toDouble() ?? 0.0,
             'posterPath': posterPath != null ? '$_imageBaseUrl$posterPath' : null,
-            'category': isMovie ? 'Movie' : 'Web Series',
+            'category': category, // 🆕 The smart category is applied here!
             'genres': genres,
-            'tmdbId': item['id'], // 🆕 Add this line to save the TMDB ID!
+            'tmdbId': item['id'],
           };
         }).toList();
       }
@@ -93,24 +106,34 @@ class TmdbService {
     return {};
   }
 
-  // 🆕 New methods for trailer and cast
+  // ── Fetch Official YouTube Trailer ────────────────────────────
   Future<String?> getTrailerUrl(int tmdbId, bool isMovie) async {
     final type = isMovie ? 'movie' : 'tv';
     final url = Uri.parse('$_baseUrl/$type/$tmdbId/videos?api_key=$_apiKey');
+
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
-        final trailer = results.firstWhere((v) => v['type'] == 'Trailer' && v['site'] == 'YouTube', orElse: () => null);
+
+        // Find the first video that is explicitly a YouTube Trailer
+        final trailer = results.firstWhere(
+              (v) => v['site'] == 'YouTube' && v['type'] == 'Trailer',
+          orElse: () => null,
+        );
+
         if (trailer != null) {
           return 'https://www.youtube.com/watch?v=${trailer['key']}';
         }
       }
-    } catch (e) { print('TMDB Trailer Error: $e'); }
+    } catch (e) {
+      print('TMDB Trailer Error: $e');
+    }
     return null;
   }
 
+  // ── Fetch Cast Members ──────────────────────────────────────────
   Future<List<CastMember>> getCast(int tmdbId, bool isMovie) async {
     final type = isMovie ? 'movie' : 'tv';
     final url = Uri.parse('$_baseUrl/$type/$tmdbId/credits?api_key=$_apiKey');
@@ -121,7 +144,9 @@ class TmdbService {
         final List cast = data['cast'] ?? [];
         return cast.take(10).map((c) => CastMember.fromJson(c)).toList(); // Get top 10 cast members
       }
-    } catch (e) { print('TMDB Cast Error: $e'); }
+    } catch (e) {
+      print('TMDB Cast Error: $e');
+    }
     return [];
   }
 }

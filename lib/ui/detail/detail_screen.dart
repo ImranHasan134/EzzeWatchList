@@ -3,12 +3,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart'; // 🆕 Import url_launcher
+import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/database/watch_provider.dart';
 import '../../data/models/watch_item.dart';
 import '../../utils/app_theme.dart';
-import '../../data/network/tmdb_service.dart'; // 🆕 Import CastMember
+import '../../data/network/tmdb_service.dart';
 import '../add_edit/add_edit_screen.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -21,8 +21,9 @@ class DetailScreen extends StatefulWidget {
 
 class _DetailScreenState extends State<DetailScreen> {
   WatchItem? _item;
-  String? _trailerUrl; // 🆕 Trailer URL state
-  List<CastMember> _castMembers = []; // 🆕 Cast members state
+  String? _trailerUrl;
+  List<CastMember> _castMembers = [];
+  bool _isFetchingExtras = false;
 
   @override
   void initState() {
@@ -32,29 +33,64 @@ class _DetailScreenState extends State<DetailScreen> {
 
   Future<void> _loadItem() async {
     final item = await context.read<WatchProvider>().getItemById(widget.itemId);
-    if (mounted) {
+    if (mounted && item != null) {
       setState(() {
         _item = item;
-        _trailerUrl = null; // reset
-        _castMembers = []; // reset
+        _trailerUrl = null;
+        _castMembers = [];
+        _isFetchingExtras = true; // 🟢 Start the loading spinner!
       });
 
-      // Fetch trailers/cast if tmdbId exists 🆕
-      if (_item != null && _item!.tmdbId != null) {
-        final trailerUrl = await TmdbService().getTrailerUrl(_item!.tmdbId!, _item!.category == Category.movie);
-        final castMembers = await TmdbService().getCast(_item!.tmdbId!, _item!.category == Category.movie);
+      int? activeTmdbId = item.tmdbId;
+
+      try {
+        // ── AUTO-HEAL: Fix old movies ──────────
+        if (activeTmdbId == null) {
+          final searchResults = await TmdbService().searchContent(item.title);
+          if (searchResults.isNotEmpty) {
+            activeTmdbId = searchResults.first['tmdbId'] as int?;
+            if (activeTmdbId != null) {
+              final updatedItem = WatchItem(
+                id: item.id, title: item.title, category: item.category,
+                genres: item.genres, releaseYear: item.releaseYear,
+                description: item.description, rating: item.rating,
+                status: item.status, posterPath: item.posterPath,
+                seasons: item.seasons, episodes: item.episodes,
+                createdAt: item.createdAt, hindiAvailable: item.hindiAvailable,
+                watchSource: item.watchSource, tmdbId: activeTmdbId,
+              );
+              context.read<WatchProvider>().updateItem(updatedItem);
+            }
+          }
+        }
+
+        // ── 🚀 FETCH IN PARALLEL ──────────
+        if (activeTmdbId != null) {
+          final isMovie = item.category == Category.movie;
+
+          // Fire both API calls at the exact same time!
+          final results = await Future.wait([
+            TmdbService().getTrailerUrl(activeTmdbId, isMovie),
+            TmdbService().getCast(activeTmdbId, isMovie),
+          ]);
+
+          if (mounted) {
+            setState(() {
+              _trailerUrl = results[0] as String?;
+              _castMembers = results[1] as List<CastMember>;
+            });
+          }
+        }
+      } finally {
         if (mounted) {
           setState(() {
-            _trailerUrl = trailerUrl;
-            _castMembers = castMembers;
+            _isFetchingExtras = false; // 🔴 Stop the loading spinner!
           });
         }
       }
     }
   }
-
-  // 🆕 Logic to instantly update status from the Detail Screen
-  // ── 🆕 UPGRADED STATUS LOGIC WITH ERROR HANDLING ────────
+  // ── UPGRADED STATUS LOGIC WITH ERROR HANDLING ────────
   Future<void> _changeStatus(String newStatus) async {
     if (_item == null) return;
 
@@ -97,6 +133,7 @@ class _DetailScreenState extends State<DetailScreen> {
       }
     }
   }
+
   Future<void> _delete() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -238,7 +275,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       ],
                     ),
 
-                  // ── 🆕 STATUS ACTION BUTTONS (Start Watching / Mark Watched) ────────
+                  // ── STATUS ACTION BUTTONS (Start Watching / Mark Watched) ────────
                   if (item.status == WatchStatus.planned) ...[
                     Row(
                       children: [
@@ -275,29 +312,48 @@ class _DetailScreenState extends State<DetailScreen> {
                     const SizedBox(height: 16),
                   ],
 
-                  // ── 🆕 TRAILER BUTTON ──────────
+                  // ── 🆕 TMDB LOADING SPINNER ──────────
+                  if (_isFetchingExtras)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: CircularProgressIndicator(color: Color(0xFFFFD700)),
+                      ),
+                    ),
+
+                  // ── TRAILER BUTTON ──────────
                   if (_trailerUrl != null)
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
                         onPressed: () async {
-                          if (!await launchUrl(Uri.parse(_trailerUrl!))) {
-                            // Handle implicitly
+                          final uri = Uri.parse(_trailerUrl!);
+                          // 🆕 mode: LaunchMode.externalApplication forces the native YouTube app to open!
+                          if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Could not open YouTube')),
+                              );
+                            }
                           }
                         },
                         icon: const Icon(Icons.play_circle_fill),
-                        label: const Text('Watch Trailer'),
-                        style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF4500)), // Deep Orange/Red
+                        label: const Text('Watch Trailer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF0000), // YouTube Red
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
                       ),
                     ),
                   const SizedBox(height: 16),
 
-                  // ── 🆕 CAST SECTION ──────────
+                  // ── CAST SECTION ──────────
                   if (_castMembers.isNotEmpty) ...[
                     const Text('TOP CAST', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey, letterSpacing: 1)),
                     const SizedBox(height: 8),
                     SizedBox(
-                      height: 130, // Adjust height
+                      height: 130,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         itemCount: _castMembers.length,
@@ -310,34 +366,30 @@ class _DetailScreenState extends State<DetailScreen> {
                     const SizedBox(height: 16),
                   ],
 
-                  // Buttons: Edit / Delete
+                  // ── Edit / Delete Buttons ──────────
                   Row(
                     children: [
                       Expanded(
-                        child: FilledButton.icon(
+                        child: OutlinedButton.icon(
                           onPressed: () async {
                             await Navigator.push(
                               context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                      AddEditScreen(itemId: item.id)),
+                              MaterialPageRoute(builder: (_) => AddEditScreen(itemId: item.id)),
                             );
                             _loadItem();
                           },
-                          icon: const Icon(Icons.edit),
-                          label: const Text('Edit'),
+                          icon: const Icon(Icons.edit, color: Color(0xFFFFD700)),
+                          label: const Text('Edit', style: TextStyle(color: Color(0xFFFFD700))),
+                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFFFD700))),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _delete,
-                          icon:
-                          const Icon(Icons.delete_outline, color: Colors.red),
-                          label: const Text('Delete',
-                              style: TextStyle(color: Colors.red)),
-                          style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.red)),
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          label: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent)),
                         ),
                       ),
                     ],
@@ -401,7 +453,6 @@ class _DetailScreenState extends State<DetailScreen> {
     return const Icon(Icons.play_circle_fill, size: 25);
   }
 
-  // 🆕 helper widget for cast
   Widget _buildCastCard(CastMember member) {
     return Container(
       width: 80,
@@ -423,8 +474,6 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 }
-
-// ── SMALL REUSABLE WIDGETS ─────────────────────────────
 
 class _StatusChip extends StatelessWidget {
   final String status;

@@ -22,6 +22,7 @@ class AddEditScreen extends StatefulWidget {
 }
 
 class _AddEditScreenState extends State<AddEditScreen> {
+  int? _tmdbId;
   final _formKey = GlobalKey<FormState>();
 
   final _titleCtrl    = TextEditingController();
@@ -160,45 +161,49 @@ class _AddEditScreenState extends State<AddEditScreen> {
               subtitle: Text('${item['releaseYear']} • ${item['category']}'),
               trailing: Text('⭐ ${item['rating']}', style: const TextStyle(color: Color(0xFFFFD700))),
                 onTap: () async {
-                  // 🆕 Pop the sheet instantly for a snappy UI feel
-                  Navigator.pop(ctx);
+                  Navigator.pop(ctx); // Close the search modal
 
-                  int? seasons;
-                  int? episodes = item['episodes']; // Pre-filled from Jikan if Anime
+                  // Show a loading indicator if you have one, or just proceed
+                  final tmdbId = item['tmdbId'];
+                  final category = item['category'] ?? 'Movie';
 
-                  // 🆕 If it's a Web Series, fetch the exact counts from TMDB in the background
-                  if (item['category'] == 'Web Series' && item['id'] != null) {
-                    final details = await TmdbService().getTvSeasonEpisode(item['id']);
-                    seasons = details['seasons'];
-                    episodes = details['episodes'];
+                  int? fetchedSeasons;
+                  int? fetchedEpisodes;
+
+                  // ── 🆕 FETCH SEASONS & EPISODES FOR SERIES ──────────
+                  if (tmdbId != null && (category == 'Web Series' || category == 'Anime Series')) {
+                    final tvDetails = await TmdbService().getTvSeasonEpisode(tmdbId);
+                    fetchedSeasons = tvDetails['seasons'];
+                    fetchedEpisodes = tvDetails['episodes'];
                   }
 
                   setState(() {
+                    _tmdbId = tmdbId;
                     _titleCtrl.text = item['title'] ?? '';
-                    _yearCtrl.text = item['releaseYear'] ?? '';
-                    _descCtrl.text = item['description'] ?? '';
-                    _posterPath = item['posterPath'];
+                    _category = category;
 
-                    double newRating = (item['rating'] as num).toDouble();
-                    _rating = newRating.clamp(1.0, 10.0);
-
-                    if (Category.all.contains(item['category'])) {
-                      _category = item['category'];
+                    // 🆕 Auto-fill the text fields with the fetched data
+                    if (fetchedSeasons != null && fetchedSeasons > 0) {
+                      _seasonsCtrl.text = fetchedSeasons.toString();
+                    } else {
+                      _seasonsCtrl.clear();
                     }
 
-                    // 🆕 Auto-fill the Season and Episode boxes!
-                    if (seasons != null && seasons > 0) _seasonsCtrl.text = seasons.toString();
-                    if (episodes != null && episodes > 0) _episodesCtrl.text = episodes.toString();
+                    if (fetchedEpisodes != null && fetchedEpisodes > 0) {
+                      _episodesCtrl.text = fetchedEpisodes.toString();
+                    } else {
+                      _episodesCtrl.clear();
+                    }
 
+                    _yearCtrl.text = item['releaseYear'] ?? '';
+                    _descCtrl.text = item['description'] ?? '';
+                    _rating = item['rating'] ?? 0.0;
+                    _posterPath = item['posterPath'];
+
+                    // Handle Genres safely
                     if (item['genres'] != null) {
-                      final fetchedGenres = List<String>.from(item['genres']);
-                      _selectedGenres.clear();
-                      _selectedGenres.addAll(fetchedGenres.take(4));
-
-                      for (final g in _selectedGenres) {
-                        if (!Genre.all.contains(g)) Genre.all.add(g);
-                      }
-                      Genre.all.sort();
+                      _selectedGenres.clear(); // First, empty the existing list
+                      _selectedGenres.addAll(List<String>.from(item['genres'])); // Then, safely add the new TMDB genres
                     }
                   });
                 },
@@ -216,6 +221,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
     final item = WatchItem(
       id: _editingItem?.id,
+      tmdbId: _tmdbId,
       title: _titleCtrl.text.trim(),
       category: _category,
       genres: _selectedGenres.join(','),
