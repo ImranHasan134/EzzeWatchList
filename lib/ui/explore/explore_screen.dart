@@ -33,27 +33,63 @@ class _ExploreScreenState extends State<ExploreScreen> {
     'Most Popular': 'popularity.desc',
     'Highest Rated': 'vote_average.desc',
     'Newest First': 'primary_release_date.desc',
-    'Revenue': 'revenue.desc',
+    'Top Revenue': 'revenue.desc',
   };
-  String _selectedSortName = 'Most Popular';
+  String? _selectedSortName;
 
+  // ── 🆕 YOUR FULL GENRE LIST ──
   final Map<String, int?> _genreOptions = {
-    'All Genres': null,
-    'Action': 28, 'Adventure': 12, 'Animation': 16, 'Comedy': 35,
-    'Horror': 27, 'Romance': 10749, 'Sci-Fi': 878, 'Thriller': 53,
+    'Action': 28,
+    'Action & Adventure': 10759,
+    'Adventure': 12,
+    'Animation': 16,
+    'Avant Garde': null,
+    'Award Winning': null,
+    'Boys Love': null,
+    'Comedy': 35,
+    'Crime': 80,
+    'Documentary': 99,
+    'Drama': 18,
+    'Ecchi': null,
+    'Family': 10751,
+    'Fantasy': 14,
+    'Girls Love': null,
+    'Gourmet': null,
+    'History': 36,
+    'Horror': 27,
+    'Isekai': null,
+    'Kids': 10762,
+    'Magic': null,
+    'Martial Arts': null,
+    'Mecha': null,
+    'Music': 10402,
+    'Mystery': 9648,
+    'News': 10763,
+    'Psychological': null,
+    'Reality': 10764,
+    'Romance': 10749,
+    'Sci-Fi': 878,
+    'Sci-Fi & Fantasy': 10765,
+    'Slice of Life': null,
+    'Soap': 10766,
+    'Sports': null,
+    'Supernatural': null,
+    'Suspense': null,
+    'Talk': 10767,
+    'Thriller': 53,
+    'TV Movie': 10770,
+    'War': 10752,
+    'War & Politics': 10768,
+    'Western': 37,
   };
-  String _selectedGenreName = 'All Genres';
+  String? _selectedGenreName;
 
   @override
   void initState() {
     super.initState();
     _loadRecentSearches();
-    _fetchExploreData();
-
-    // Listen to focus changes to toggle between Explore and Recent Searches
-    _searchFocus.addListener(() {
-      setState(() {});
-    });
+    _fetchInitialData();
+    _searchFocus.addListener(() => setState(() {}));
   }
 
   @override
@@ -114,12 +150,27 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   // ── 🧭 EXPLORE LOGIC ─────────────────────────────────────────
 
-  Future<void> _fetchExploreData() async {
+  Future<void> _fetchInitialData() async {
     setState(() => _isExploreLoading = true);
-    final genreId = _genreOptions[_selectedGenreName];
-    final sortBy = _sortOptions[_selectedSortName]!;
-    final results = await _tmdbService.discoverMovies(genreId: genreId, sortBy: sortBy);
+    final results = await _tmdbService.getTrending();
+    if (mounted) {
+      setState(() {
+        _exploreResults = results;
+        _isExploreLoading = false;
+      });
+    }
+  }
 
+  Future<void> _fetchFilteredData() async {
+    if (_selectedGenreName == null && _selectedSortName == null) {
+      _fetchInitialData();
+      return;
+    }
+    setState(() => _isExploreLoading = true);
+    final results = await _tmdbService.discoverMovies(
+      genreId: _genreOptions[_selectedGenreName],
+      sortBy: _sortOptions[_selectedSortName] ?? 'popularity.desc',
+    );
     if (mounted) {
       setState(() {
         _exploreResults = results;
@@ -152,15 +203,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
             style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 16),
             decoration: InputDecoration(
               hintText: 'Search or explore...',
-              hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black54),
-              prefixIcon: Icon(Icons.search, color: isDark ? Colors.white54 : Colors.black54),
+              hintStyle: const TextStyle(color: Colors.grey),
+              prefixIcon: const Icon(Icons.search, color: Colors.grey),
               suffixIcon: _searchCtrl.text.isNotEmpty
                   ? IconButton(
                 icon: const Icon(Icons.clear, size: 20),
                 onPressed: () {
                   _searchCtrl.clear();
                   _onSearchChanged('');
-                  _searchFocus.unfocus(); // Drops back to explore screen
+                  _searchFocus.unfocus();
                 },
               )
                   : null,
@@ -171,49 +222,42 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
         ),
       ),
-      // ── DYNAMIC BODY STATE ──
       body: _buildDynamicBody(isDark),
     );
   }
 
   Widget _buildDynamicBody(bool isDark) {
-    // 1. If typing, show Live Search Results
     if (_searchCtrl.text.isNotEmpty) {
       return _buildSearchResults(isDark);
     }
-    // 2. If search bar is focused but empty, show Recent Searches
     else if (_searchFocus.hasFocus) {
       return _buildRecentSearches(isDark);
     }
-    // 3. Default: Show Explore Categories & Grid
     else {
       return _buildExploreView(isDark);
     }
   }
 
-  // ── STATE 1: EXPLORE VIEW ──
   Widget _buildExploreView(bool isDark) {
     return Column(
       children: [
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         _buildFilterRow(_sortOptions.keys.toList(), _selectedSortName, (selected) {
-          setState(() => _selectedSortName = selected);
-          _fetchExploreData();
+          setState(() => _selectedSortName = (_selectedSortName == selected) ? null : selected);
+          _fetchFilteredData();
         }, isDark),
         _buildFilterRow(_genreOptions.keys.toList(), _selectedGenreName, (selected) {
-          setState(() => _selectedGenreName = selected);
-          _fetchExploreData();
+          setState(() => _selectedGenreName = (_selectedGenreName == selected) ? null : selected);
+          _fetchFilteredData();
         }, isDark),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Expanded(
           child: _isExploreLoading
               ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)))
-              : _exploreResults.isEmpty
-              ? const Center(child: Text('No results found.'))
               : GridView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, childAspectRatio: 0.65, crossAxisSpacing: 10, mainAxisSpacing: 16,
+              crossAxisCount: 3, childAspectRatio: 0.6, crossAxisSpacing: 10, mainAxisSpacing: 16,
             ),
             itemCount: _exploreResults.length,
             itemBuilder: (context, index) => _buildPosterCard(_exploreResults[index], isDark),
@@ -223,7 +267,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  // ── STATE 2: RECENT SEARCHES ──
   Widget _buildRecentSearches(bool isDark) {
     if (_recentSearches.isEmpty) {
       return Center(
@@ -264,7 +307,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  // ── STATE 3: SEARCH RESULTS ──
   Widget _buildSearchResults(bool isDark) {
     if (_isSearchLoading) return const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)));
     if (_searchResults.isEmpty) return const Center(child: Text('No results found.'));
@@ -279,8 +321,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  // ── SHARED HELPER WIDGETS ──
-  Widget _buildFilterRow(List<String> options, String selectedValue, Function(String) onSelect, bool isDark) {
+  Widget _buildFilterRow(List<String> options, String? selectedValue, Function(String) onSelect, bool isDark) {
     return SizedBox(
       height: 45,
       child: ListView.builder(
@@ -293,14 +334,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              label: Text(option, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500)),
+              label: Text(option, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.black : (isDark ? Colors.white70 : Colors.black87))),
               selected: isSelected,
               onSelected: (_) => onSelect(option),
-              selectedColor: const Color(0xFFFFD700).withOpacity(0.2),
-              checkmarkColor: const Color(0xFFFFD700),
+              selectedColor: const Color(0xFFFFD700),
               backgroundColor: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
               side: BorderSide(color: isSelected ? const Color(0xFFFFD700) : Colors.transparent),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              showCheckmark: false,
             ),
           );
         },
@@ -311,7 +352,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget _buildPosterCard(Map<String, dynamic> item, bool isDark) {
     return GestureDetector(
       onTap: () {
-        // Drop keyboard when navigating away
         _searchFocus.unfocus();
         Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item)));
       },

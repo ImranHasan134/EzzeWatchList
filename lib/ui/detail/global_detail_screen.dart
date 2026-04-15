@@ -152,7 +152,7 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
                 children: [
                   if (backdropImg != null)
                     CachedNetworkImage(
-                      imageUrl: backdropImg,
+                      imageUrl: item['backdropPath'] ?? item['posterPath'], // 🆕 This will now automatically pull the 1280px version!
                       fit: BoxFit.cover,
                       alignment: Alignment.topCenter,
                     ),

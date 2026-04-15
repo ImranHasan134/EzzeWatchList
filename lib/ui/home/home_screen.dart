@@ -114,21 +114,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── 🆕 UPGRADED HERO CAROUSEL UI ──
   // ── UPGRADED HERO CAROUSEL UI (Fixed Dots) ──
+  // lib/ui/home/home_screen.dart
+
+// ... (keep the imports and the class state logic same)
+
+  // ── 🆕 UPDATED HERO CAROUSEL UI (Full Title) ──
   Widget _buildHeroCarousel(bool isDark) {
-    // Grab the top 10 items
     final topItems = _trending.take(10).toList();
     if (topItems.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 480,
-      child: Stack( // 🆕 Outer Stack keeps the dots static!
+      height: 500, // 🆕 Slightly increased height for longer titles
+      child: Stack(
         children: [
-          // 1. The Sliding Images
           PageView.builder(
             controller: _pageController,
-            onPageChanged: (index) {
-              setState(() => _currentCarouselIndex = index);
-            },
+            onPageChanged: (index) => setState(() => _currentCarouselIndex = index),
             itemCount: topItems.length,
             itemBuilder: (context, index) {
               final item = topItems[index];
@@ -136,15 +137,12 @@ class _HomeScreenState extends State<HomeScreen> {
               final genres = (item['genres'] as List<String>).take(3).join(' • ');
 
               return GestureDetector(
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item)));
-                },
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item))),
                 child: Stack(
                   alignment: Alignment.bottomCenter,
                   children: [
-                    // Background Image
                     Container(
-                      height: 480,
+                      height: 500,
                       width: double.infinity,
                       foregroundDecoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -163,9 +161,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           : Container(color: Colors.grey.shade900),
                     ),
 
-                    // Text Overlay
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 40), // 🆕 Added bottom padding to lift text above dots
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 50),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -176,7 +173,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          Text(item['title'] ?? '', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, height: 1.1)),
+                          // 🆕 TITLE: Removed maxLines and overflow to show FULL NAME
+                          Text(
+                              item['title'] ?? '',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, height: 1.1)
+                          ),
                           const SizedBox(height: 8),
 
                           Text(genres, style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.w600)),
@@ -188,16 +190,12 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-
-          // 2. 🆕 The Static Dots (Pinned to the bottom)
           Positioned(
-            bottom: 12,
-            left: 0,
-            right: 0,
+            bottom: 12, left: 0, right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(topItems.length, (dotIndex) {
-                return AnimatedContainer( // 🆕 Makes the dot width change buttery smooth
+                return AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   margin: const EdgeInsets.symmetric(horizontal: 3),
                   width: _currentCarouselIndex == dotIndex ? 16 : 6,
@@ -214,7 +212,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  // ── REUSABLE HORIZONTAL CAROUSEL ──
+
+  // ── 🆕 REUSABLE HORIZONTAL CAROUSEL (Full Titles) ──
   Widget _buildCarousel(String title, List<Map<String, dynamic>> items, bool isDark) {
     if (items.isEmpty) return const SizedBox.shrink();
 
@@ -226,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ),
         SizedBox(
-          height: 200,
+          height: 250, // 🆕 Increased height to allow 2-3 lines of text below posters
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -234,18 +233,31 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (context, index) {
               final item = items[index];
               return GestureDetector(
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item)));
-                },
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item))),
                 child: Container(
-                  width: 130, // Slightly wider posters
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: isDark ? Colors.grey.shade900 : Colors.grey.shade300),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: item['posterPath'] != null
-                        ? CachedNetworkImage(imageUrl: item['posterPath'], fit: BoxFit.cover)
-                        : const Center(child: Icon(Icons.movie, color: Colors.white54)),
+                  width: 130,
+                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Poster
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: AspectRatio(
+                          aspectRatio: 2/3, // Keeps all posters same size
+                          child: item['posterPath'] != null
+                              ? CachedNetworkImage(imageUrl: item['posterPath'], fit: BoxFit.cover)
+                              : Container(color: Colors.grey.shade900, child: const Icon(Icons.movie, color: Colors.white54)),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // 🆕 TITLE: Removed maxLines so the full name wraps to the next line
+                      Text(
+                        item['title'] ?? 'Unknown',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, height: 1.2),
+                        textAlign: TextAlign.start,
+                      ),
+                    ],
                   ),
                 ),
               );

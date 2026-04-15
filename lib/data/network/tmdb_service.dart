@@ -25,7 +25,8 @@ class CastMember {
 class TmdbService {
   static final String _apiKey = dotenv.env['TMDB_API_KEY'] ?? '';
   static const String _baseUrl = 'https://api.themoviedb.org/3';
-  static const String _imageBaseUrl = 'https://image.tmdb.org/t/p/w500';
+  static const String _imgW500 = 'https://image.tmdb.org/t/p/w500';
+  static const String _imgW1280 = 'https://image.tmdb.org/t/p/w1280'; // 🆕 High Res for Banners
 
   static const Map<int, String> _genreMap = {
     28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime',
@@ -58,8 +59,8 @@ class TmdbService {
       'releaseYear': (isMovie ? item['release_date'] : item['first_air_date'])?.toString().split('-').first ?? '',
       'description': item['overview'] ?? '',
       'rating': (item['vote_average'] as num?)?.toDouble() ?? 0.0,
-      'posterPath': posterPath != null ? '$_imageBaseUrl$posterPath' : null,
-      'backdropPath': backdropPath != null ? '$_imageBaseUrl$backdropPath' : null, // 🆕 Used for big banners!
+      'posterPath': posterPath != null ? '$_imgW500$posterPath' : null,
+      'backdropPath': backdropPath != null ? '$_imgW1280$backdropPath' : null, // 🔴 Requesting 1280px wide image!
       'category': category,
       'genres': genres,
       'tmdbId': item['id'],
