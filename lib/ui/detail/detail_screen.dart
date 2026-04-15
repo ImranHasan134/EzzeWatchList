@@ -3,8 +3,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart'; // 🆕 Import the new player
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart'; // 🆕 Required to open web links
+
 import '../../data/database/watch_provider.dart';
 import '../../data/models/watch_item.dart';
 import '../../utils/app_theme.dart';
@@ -24,7 +26,7 @@ class _DetailScreenState extends State<DetailScreen> {
   List<CastMember> _castMembers = [];
   bool _isFetchingExtras = false;
 
-  YoutubePlayerController? _ytController; // 🆕 Controller for the inline player
+  YoutubePlayerController? _ytController;
 
   @override
   void initState() {
@@ -34,7 +36,7 @@ class _DetailScreenState extends State<DetailScreen> {
 
   @override
   void dispose() {
-    _ytController?.dispose(); // 🆕 Always dispose the controller to prevent memory leaks
+    _ytController?.dispose();
     super.dispose();
   }
 
@@ -50,27 +52,17 @@ class _DetailScreenState extends State<DetailScreen> {
       int? activeTmdbId = item.tmdbId;
 
       try {
-        // ── AUTO-HEAL: Fix old movies ──
         if (activeTmdbId == null) {
           final searchResults = await TmdbService().searchContent(item.title);
           if (searchResults.isNotEmpty) {
             activeTmdbId = searchResults.first['tmdbId'] as int?;
             if (activeTmdbId != null) {
-              final updatedItem = WatchItem(
-                id: item.id, title: item.title, category: item.category,
-                genres: item.genres, releaseYear: item.releaseYear,
-                description: item.description, rating: item.rating,
-                status: item.status, posterPath: item.posterPath,
-                seasons: item.seasons, episodes: item.episodes,
-                createdAt: item.createdAt, hindiAvailable: item.hindiAvailable,
-                watchSource: item.watchSource, tmdbId: activeTmdbId,
-              );
+              final updatedItem = item.copyWith(tmdbId: activeTmdbId);
               context.read<WatchProvider>().updateItem(updatedItem);
             }
           }
         }
 
-        // ── FETCH TRAILER & CAST IN PARALLEL ──
         if (activeTmdbId != null) {
           final isMovie = item.category == Category.movie || item.category == 'Anime Movie';
           final results = await Future.wait([
@@ -81,14 +73,13 @@ class _DetailScreenState extends State<DetailScreen> {
           if (mounted) {
             final trailerUrl = results[0] as String?;
 
-            // 🆕 Initialize the YouTube Player if a trailer exists
             if (trailerUrl != null) {
               final videoId = YoutubePlayer.convertUrlToId(trailerUrl);
               if (videoId != null) {
                 _ytController = YoutubePlayerController(
                   initialVideoId: videoId,
                   flags: const YoutubePlayerFlags(
-                    autoPlay: false, // Don't blast audio immediately
+                    autoPlay: false,
                     mute: false,
                     disableDragSeek: false,
                     loop: false,
@@ -110,19 +101,10 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
-  // ── STATUS LOGIC ──
   Future<void> _changeStatus(String newStatus) async {
     if (_item == null) return;
     try {
-      final updatedItem = WatchItem(
-        id: _item!.id, title: _item!.title, category: _item!.category,
-        genres: _item!.genres, releaseYear: _item!.releaseYear,
-        description: _item!.description, rating: _item!.rating,
-        status: newStatus, posterPath: _item!.posterPath,
-        seasons: _item!.seasons, episodes: _item!.episodes,
-        createdAt: _item!.createdAt, hindiAvailable: _item!.hindiAvailable,
-        watchSource: _item!.watchSource, tmdbId: _item!.tmdbId,
-      );
+      final updatedItem = _item!.copyWith(status: newStatus);
       await context.read<WatchProvider>().updateItem(updatedItem);
       await _loadItem();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Status updated to $newStatus!'), backgroundColor: Colors.green));
@@ -210,7 +192,6 @@ class _DetailScreenState extends State<DetailScreen> {
                     const SizedBox(height: 16),
                   ],
 
-                  // ── 🆕 INLINE YOUTUBE PLAYER ──
                   if (_isFetchingExtras)
                     const Padding(padding: EdgeInsets.symmetric(vertical: 30), child: Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))))
                   else if (_ytController != null) ...[
@@ -248,27 +229,67 @@ class _DetailScreenState extends State<DetailScreen> {
                   const SizedBox(height: 8),
                   Text(
                       item.description.isNotEmpty ? item.description : 'No description available.',
-                      style: TextStyle( // 🔴 Removed 'const' because the color is now dynamic
+                      style: TextStyle(
                         fontSize: 14,
                         height: 1.5,
-                        // 🆕 This makes the description readable in both themes
                         color: isDark ? Colors.white : Colors.black,
                       )
                   ),
                   const SizedBox(height: 24),
-                  if ((item.watchSource ?? '').isNotEmpty) ...[
+
+                  // ── 🆕 FUNCTIONAL "AVAILABLE ON" BUTTON ──
+                  if ((item.watchSource ?? '').isNotEmpty && item.watchSource != 'None') ...[
                     const Text('AVAILABLE ON', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
                     const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _platformLogo(item.watchSource!),
-                          const SizedBox(width: 12),
-                          Text(item.watchSource!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        ],
+
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () async {
+                          // 1. Check if the link is empty
+                          if (item.showLink == null || item.showLink!.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('No show link found!'),
+                                  backgroundColor: Colors.redAccent,
+                                  behavior: SnackBarBehavior.floating,
+                                )
+                            );
+                            return;
+                          }
+
+                          // 2. Try to launch the URL
+                          final Uri url = Uri.parse(item.showLink!);
+                          if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open link.')));
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: isDark ? Colors.white12 : Colors.black12), // Subtle border
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Conditional Icon/Logo
+                              if (item.watchSource == 'Watch Here')
+                                const Icon(Icons.play_circle_fill, color: Color(0xFFFFD700), size: 24)
+                              else
+                                _platformLogo(item.watchSource!),
+
+                              const SizedBox(width: 12),
+                              Text(item.watchSource!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              const SizedBox(width: 12),
+
+                              // Visual link cue
+                              const Icon(Icons.open_in_new, size: 14, color: Colors.grey),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -321,7 +342,6 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  // ── HELPER METHODS ──
   Widget _buildPoster(WatchItem item) {
     if (item.posterPath != null && item.posterPath!.isNotEmpty) {
       if (item.posterPath!.startsWith('http')) return CachedNetworkImage(imageUrl: item.posterPath!, fit: BoxFit.cover, alignment: Alignment.topCenter);

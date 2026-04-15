@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/network/tmdb_service.dart';
 import '../detail/global_detail_screen.dart';
+import '../../widgets/custom_header.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -37,7 +38,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   };
   String? _selectedSortName;
 
-  // ── 🆕 YOUR FULL GENRE LIST ──
+  // ── FULL GENRE LIST ──
   final Map<String, int?> _genreOptions = {
     'Action': 28,
     'Action & Adventure': 10759,
@@ -148,22 +149,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
     });
   }
 
-// lib/ui/explore/explore_screen.dart
-
-// ── 🧭 UPDATED EXPLORE LOGIC (60 Items) ───────────────────────
+  // ── 🧭 EXPLORE LOGIC (60 Items) ───────────────────────
 
   Future<void> _fetchInitialData() async {
     setState(() => _isExploreLoading = true);
 
     try {
-      // 🆕 Fetch 3 pages (20 items each) in parallel for speed
       final results = await Future.wait([
         _tmdbService.getTrending(page: 1),
         _tmdbService.getTrending(page: 2),
         _tmdbService.getTrending(page: 3),
       ]);
 
-      // Flatten the 3 lists into one big list of 60 items
       final allItems = results.expand((page) => page).toList();
 
       if (mounted) {
@@ -178,7 +175,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _fetchFilteredData() async {
-    // If user clears filters, go back to the 60 trending items
     if (_selectedGenreName == null && _selectedSortName == null) {
       _fetchInitialData();
       return;
@@ -190,7 +186,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final genreId = _genreOptions[_selectedGenreName];
       final sortBy = _sortOptions[_selectedSortName] ?? 'popularity.desc';
 
-      // 🆕 Also fetch 3 pages for filtered data so the categories feel full
       final results = await Future.wait([
         _tmdbService.discoverMovies(genreId: genreId, sortBy: sortBy, page: 1),
         _tmdbService.discoverMovies(genreId: genreId, sortBy: sortBy, page: 2),
@@ -218,41 +213,55 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
+
+      // ── THE FIXED APP BAR ──
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
-        title: Container(
-          height: 45,
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: TextField(
-            controller: _searchCtrl,
-            focusNode: _searchFocus,
-            style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 16),
-            decoration: InputDecoration(
-              hintText: 'Search or explore...',
-              hintStyle: const TextStyle(color: Colors.grey),
-              prefixIcon: const Icon(Icons.search, color: Colors.grey),
-              suffixIcon: _searchCtrl.text.isNotEmpty
-                  ? IconButton(
-                icon: const Icon(Icons.clear, size: 20),
-                onPressed: () {
-                  _searchCtrl.clear();
-                  _onSearchChanged('');
-                  _searchFocus.unfocus();
-                },
-              )
-                  : null,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        centerTitle: false,
+        title: const CustomHeader(title: 'Explore', subtitle: 'Discover new favorites'),
+
+        // Push the Search text field down below the title
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(65),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Container(
+              height: 45,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextField(
+                controller: _searchCtrl,
+                focusNode: _searchFocus,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 16),
+                decoration: InputDecoration(
+                  hintText: 'Search or explore...',
+                  hintStyle: const TextStyle(color: Colors.grey),
+                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                  suffixIcon: _searchCtrl.text.isNotEmpty
+                      ? IconButton(
+                    icon: const Icon(Icons.clear, size: 20),
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      _onSearchChanged('');
+                      _searchFocus.unfocus();
+                    },
+                  )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onChanged: _onSearchChanged,
+              ),
             ),
-            onChanged: _onSearchChanged,
           ),
         ),
       ),
+
+      // ── THE BODY ──
       body: _buildDynamicBody(isDark),
     );
   }
@@ -260,11 +269,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget _buildDynamicBody(bool isDark) {
     if (_searchCtrl.text.isNotEmpty) {
       return _buildSearchResults(isDark);
-    }
-    else if (_searchFocus.hasFocus) {
+    } else if (_searchFocus.hasFocus) {
       return _buildRecentSearches(isDark);
-    }
-    else {
+    } else {
       return _buildExploreView(isDark);
     }
   }

@@ -27,7 +27,7 @@ class DbHelper {
 
     return await openDatabase(
       path,
-      version: 2, // 🆕 Incremented version to apply the new column safely
+      version: 3, // 🔴 Bumped to 3 to ensure the new upgrade script runs!
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE $tableWatch(
@@ -45,18 +45,24 @@ class DbHelper {
             createdAt INTEGER,
             hindiAvailable TEXT DEFAULT 'No',
             watchSource TEXT DEFAULT '',
-            tmdbId INTEGER 
+            tmdbId INTEGER, -- 🔴 FIXED: Added the missing comma here!
+            showLink TEXT
           )
-        '''); // 🆕 tmdbId added to creation script
+        ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // 🆕 This safely updates existing users' databases without wiping their data
+        // Safely updates existing databases sequentially
         if (oldVersion < 2) {
           await db.execute('ALTER TABLE $tableWatch ADD COLUMN tmdbId INTEGER;');
+        }
+        if (oldVersion < 3) {
+          // 🔴 FIXED: Added the command to append the showLink column for existing users
+          await db.execute('ALTER TABLE $tableWatch ADD COLUMN showLink TEXT;');
         }
       },
     );
   }
+
 
   // ── CRUD METHODS ───────────────────────────────────────────
 

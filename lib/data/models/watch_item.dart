@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart' as p;
+// lib/data/models/watch_item.dart
 
 class WatchItem {
   final int? id;
@@ -15,9 +13,10 @@ class WatchItem {
   final int? seasons;
   final int? episodes;
   final int createdAt;
-  final String? hindiAvailable; // "Yes" / "No"
+  final String? hindiAvailable;
   final String? watchSource;
-  final int? tmdbId;// MLWBD / MovieBox / HiAnime
+  final int? tmdbId;
+  final String? showLink; // 🆕 The new link variable
 
   const WatchItem({
     this.id,
@@ -35,6 +34,7 @@ class WatchItem {
     this.hindiAvailable,
     this.watchSource,
     this.tmdbId,
+    this.showLink, // 🆕 Added to constructor
   });
 
   Map<String, dynamic> toMap() {
@@ -54,6 +54,7 @@ class WatchItem {
       'hindiAvailable': hindiAvailable ?? 'No',
       'watchSource': watchSource ?? '',
       'tmdbId': tmdbId,
+      'showLink': showLink, // 🆕 Added to database map
     };
   }
 
@@ -74,6 +75,7 @@ class WatchItem {
       hindiAvailable: map['hindiAvailable'] as String?,
       watchSource: map['watchSource'] as String?,
       tmdbId: map['tmdbId'],
+      showLink: map['showLink'] as String?, // 🆕 Added to data parser
     );
   }
 
@@ -92,6 +94,8 @@ class WatchItem {
     int? createdAt,
     String? hindiAvailable,
     String? watchSource,
+    int? tmdbId,
+    String? showLink, // 🆕 Added to copyWith params
   }) {
     return WatchItem(
       id: id ?? this.id,
@@ -108,6 +112,8 @@ class WatchItem {
       createdAt: createdAt ?? this.createdAt,
       hindiAvailable: hindiAvailable ?? this.hindiAvailable,
       watchSource: watchSource ?? this.watchSource,
+      tmdbId: tmdbId ?? this.tmdbId,
+      showLink: showLink ?? this.showLink, // 🆕 Added to copyWith return
     );
   }
 }
@@ -129,49 +135,13 @@ class Category {
 }
 
 class Genre {
-  // A comprehensive master list of Movie, TV Series, and Anime genres
   static List<String> all = [
-    'Action',
-    'Action & Adventure',
-    'Adventure',
-    'Animation',
-    'Avant Garde',
-    'Award Winning',
-    'Boys Love',
-    'Comedy',
-    'Crime',
-    'Documentary',
-    'Drama',
-    'Ecchi',
-    'Family',
-    'Fantasy',
-    'Girls Love',
-    'Gourmet',
-    'History',
-    'Horror',
-    'Isekai',
-    'Kids',
-    'Magic',
-    'Martial Arts',
-    'Mecha',
-    'Music',
-    'Mystery',
-    'News',
-    'Psychological',
-    'Reality',
-    'Romance',
-    'Sci-Fi',
-    'Sci-Fi & Fantasy',
-    'Slice of Life',
-    'Soap',
-    'Sports',
-    'Supernatural',
-    'Suspense',
-    'Talk',
-    'Thriller',
-    'TV Movie',
-    'War',
-    'War & Politics',
-    'Western',
+    'Action', 'Action & Adventure', 'Adventure', 'Animation', 'Avant Garde',
+    'Award Winning', 'Boys Love', 'Comedy', 'Crime', 'Documentary', 'Drama',
+    'Ecchi', 'Family', 'Fantasy', 'Girls Love', 'Gourmet', 'History', 'Horror',
+    'Isekai', 'Kids', 'Magic', 'Martial Arts', 'Mecha', 'Music', 'Mystery',
+    'News', 'Psychological', 'Reality', 'Romance', 'Sci-Fi', 'Sci-Fi & Fantasy',
+    'Slice of Life', 'Soap', 'Sports', 'Supernatural', 'Suspense', 'Talk',
+    'Thriller', 'TV Movie', 'War', 'War & Politics', 'Western',
   ];
 }

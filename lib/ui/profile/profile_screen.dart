@@ -10,6 +10,7 @@ import '../../data/network/sync_service.dart';
 import '../../utils/backup_service.dart';
 import '../../utils/theme_provider.dart';
 import '../../data/database/db_helper.dart';
+import '../../widgets/custom_header.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -87,49 +88,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
-        title: Row(
-          children: [
-            Container(
-              width: 3,
-              height: 22,
-              margin: const EdgeInsets.only(right: 10),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                ),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Profile',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-                  ),
-                ),
-                ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                  ).createShader(bounds),
-                  child: const Text(
-                    'Manage your account',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+        centerTitle: false,
+        // 🆕 Look how clean this is now!
+        title: const CustomHeader(title: 'Profile', subtitle: 'Manage your account'),
       ),
+
+
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)))
           : ListView(

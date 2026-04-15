@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/network/tmdb_service.dart';
 import '../detail/global_detail_screen.dart';
 import 'see_all_screen.dart';
+import '../../widgets/custom_header.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -83,12 +84,30 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_isLoading) {
       return Scaffold(
         backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
+        // ── 🆕 APP BAR FOR LOADING STATE ──
+        appBar: AppBar(
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
+          centerTitle: false,
+          title: const CustomHeader(title: 'Home', subtitle: 'What to watch today'),
+        ),
         body: const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))),
       );
     }
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
+
+      // ── 🆕 THE FIXED APP BAR ──
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
+        centerTitle: false,
+        title: const CustomHeader(title: 'Home', subtitle: 'What to watch today'),
+      ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 40),
         child: Column(

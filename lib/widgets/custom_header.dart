@@ -15,18 +15,19 @@ class CustomHeader extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // ── THE VERTICAL ACCENT LINE ──
+        // The 3x22 Gradient Accent Line
         Container(
-          width: 4,
-          height: 38,
+          width: 3,
+          height: 22,
+          margin: const EdgeInsets.only(right: 10),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFD700),
-            borderRadius: BorderRadius.circular(4),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+            ),
+            borderRadius: BorderRadius.circular(2),
           ),
         ),
-        const SizedBox(width: 12),
-
-        // ── TEXT COLUMN ──
+        // The Text Column
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -34,20 +35,25 @@ class CustomHeader extends StatelessWidget {
             Text(
               title,
               style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900, // Extra bold like your reference
-                color: isDark ? Colors.white : Colors.black,
-                letterSpacing: 0.5,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : const Color(0xFF1A1A1A),
                 height: 1.1,
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFFFFD700), // Golden subtitle
-                fontWeight: FontWeight.bold,
+            // The Golden Gradient Subtitle
+            ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+              ).createShader(bounds),
+              child: Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
           ],

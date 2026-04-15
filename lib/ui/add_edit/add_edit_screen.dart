@@ -12,6 +12,7 @@ import '../../data/network/jikan_service.dart';
 import '../../data/database/watch_provider.dart';
 import '../../data/models/watch_item.dart';
 import '../../data/network/tmdb_service.dart';
+import '../../widgets/custom_header.dart';
 
 class AddEditScreen extends StatefulWidget {
   final int? itemId;
@@ -30,6 +31,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   final _descCtrl     = TextEditingController();
   final _seasonsCtrl  = TextEditingController();
   final _episodesCtrl = TextEditingController();
+  final _linkCtrl     = TextEditingController(); // 🆕 Controller for the new URL field
 
   String _category = Category.movie;
   String _status   = WatchStatus.planned;
@@ -37,9 +39,8 @@ class _AddEditScreenState extends State<AddEditScreen> {
   String? _posterPath;
   final Set<String> _selectedGenres = {};
 
-  // 🆕 New UI fields
   String _hindiAvailable = 'No';
-  String? _watchSource;
+  String _watchSource = 'None';
 
   bool _isLoading = false;
   bool _isSearchingApi = false;
@@ -51,13 +52,14 @@ class _AddEditScreenState extends State<AddEditScreen> {
     if (widget.itemId != null) _loadItem();
   }
 
-  // 🆕 Dynamic options
+  // Dynamic options with "None" and "Watch Here"
   List<String> get _watchOptions {
     if (_category == Category.animeSeries || _category == Category.animeMovie) {
-      return ['MLWBD', 'MovieBox', 'HiAnime'];
+      return ['None', 'MLWBD', 'MovieBox', 'HiAnime', 'Watch Here'];
     }
-    return ['MLWBD', 'MovieBox'];
+    return ['None', 'MLWBD', 'MovieBox', 'Watch Here'];
   }
+
   bool get _showSeasonEp => _category == Category.webSeries || _category == Category.animeSeries;
 
   Future<void> _loadItem() async {
@@ -72,6 +74,11 @@ class _AddEditScreenState extends State<AddEditScreen> {
       _status            = item.status;
       _rating            = item.rating;
       _posterPath        = item.posterPath;
+
+      // 🔴 FIXED: Null-safety check for watchSource
+      _watchSource       = (item.watchSource == null || item.watchSource!.isEmpty) ? 'None' : item.watchSource!;
+      _linkCtrl.text     = item.showLink ?? '';
+
       _selectedGenres.addAll(item.genres.split(',').where((g) => g.isNotEmpty));
       if (item.seasons != null)  _seasonsCtrl.text  = item.seasons.toString();
       if (item.episodes != null) _episodesCtrl.text = item.episodes.toString();
@@ -106,7 +113,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
     setState(() => _isSearchingApi = true);
 
-    // 🆕 SMART ROUTING: Use Jikan for Anime, TMDB for everything else
     List<Map<String, dynamic>> results = [];
     if (_category == Category.animeSeries || _category == Category.animeMovie) {
       results = await JikanService().searchAnime(query);
@@ -124,7 +130,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
     }
 
     if (!mounted) return;
-    _showSearchResults(results); // We will rename the bottom sheet method too
+    _showSearchResults(results);
   }
 
   void _showSearchResults(List<Map<String, dynamic>> results) {
@@ -160,53 +166,49 @@ class _AddEditScreenState extends State<AddEditScreen> {
               title: Text(item['title'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text('${item['releaseYear']} • ${item['category']}'),
               trailing: Text('⭐ ${item['rating']}', style: const TextStyle(color: Color(0xFFFFD700))),
-                onTap: () async {
-                  Navigator.pop(ctx); // Close the search modal
+              onTap: () async {
+                Navigator.pop(ctx);
 
-                  // Show a loading indicator if you have one, or just proceed
-                  final tmdbId = item['tmdbId'];
-                  final category = item['category'] ?? 'Movie';
+                final tmdbId = item['tmdbId'];
+                final category = item['category'] ?? 'Movie';
 
-                  int? fetchedSeasons;
-                  int? fetchedEpisodes;
+                int? fetchedSeasons;
+                int? fetchedEpisodes;
 
-                  // ── 🆕 FETCH SEASONS & EPISODES FOR SERIES ──────────
-                  if (tmdbId != null && (category == 'Web Series' || category == 'Anime Series')) {
-                    final tvDetails = await TmdbService().getTvSeasonEpisode(tmdbId);
-                    fetchedSeasons = tvDetails['seasons'];
-                    fetchedEpisodes = tvDetails['episodes'];
+                if (tmdbId != null && (category == 'Web Series' || category == 'Anime Series')) {
+                  final tvDetails = await TmdbService().getTvSeasonEpisode(tmdbId);
+                  fetchedSeasons = tvDetails['seasons'];
+                  fetchedEpisodes = tvDetails['episodes'];
+                }
+
+                setState(() {
+                  _tmdbId = tmdbId;
+                  _titleCtrl.text = item['title'] ?? '';
+                  _category = category;
+
+                  if (fetchedSeasons != null && fetchedSeasons > 0) {
+                    _seasonsCtrl.text = fetchedSeasons.toString();
+                  } else {
+                    _seasonsCtrl.clear();
                   }
 
-                  setState(() {
-                    _tmdbId = tmdbId;
-                    _titleCtrl.text = item['title'] ?? '';
-                    _category = category;
+                  if (fetchedEpisodes != null && fetchedEpisodes > 0) {
+                    _episodesCtrl.text = fetchedEpisodes.toString();
+                  } else {
+                    _episodesCtrl.clear();
+                  }
 
-                    // 🆕 Auto-fill the text fields with the fetched data
-                    if (fetchedSeasons != null && fetchedSeasons > 0) {
-                      _seasonsCtrl.text = fetchedSeasons.toString();
-                    } else {
-                      _seasonsCtrl.clear();
-                    }
+                  _yearCtrl.text = item['releaseYear'] ?? '';
+                  _descCtrl.text = item['description'] ?? '';
+                  _rating = item['rating'] ?? 0.0;
+                  _posterPath = item['posterPath'];
 
-                    if (fetchedEpisodes != null && fetchedEpisodes > 0) {
-                      _episodesCtrl.text = fetchedEpisodes.toString();
-                    } else {
-                      _episodesCtrl.clear();
-                    }
-
-                    _yearCtrl.text = item['releaseYear'] ?? '';
-                    _descCtrl.text = item['description'] ?? '';
-                    _rating = item['rating'] ?? 0.0;
-                    _posterPath = item['posterPath'];
-
-                    // Handle Genres safely
-                    if (item['genres'] != null) {
-                      _selectedGenres.clear(); // First, empty the existing list
-                      _selectedGenres.addAll(List<String>.from(item['genres'])); // Then, safely add the new TMDB genres
-                    }
-                  });
-                },
+                  if (item['genres'] != null) {
+                    _selectedGenres.clear();
+                    _selectedGenres.addAll(List<String>.from(item['genres']));
+                  }
+                });
+              },
             );
           },
         );
@@ -234,7 +236,8 @@ class _AddEditScreenState extends State<AddEditScreen> {
       episodes: _episodesCtrl.text.isNotEmpty ? int.tryParse(_episodesCtrl.text) : null,
       createdAt: _editingItem?.createdAt ?? DateTime.now().millisecondsSinceEpoch,
       hindiAvailable: _hindiAvailable,
-      watchSource: _watchSource ?? _watchOptions.first,
+      watchSource: _watchSource == 'None' ? '' : _watchSource,
+      showLink: _linkCtrl.text.trim(),
     );
 
     final provider = context.read<WatchProvider>();
@@ -246,6 +249,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
     Navigator.pop(context);
   }
+
   @override
   void dispose() {
     _titleCtrl.dispose();
@@ -253,6 +257,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
     _descCtrl.dispose();
     _seasonsCtrl.dispose();
     _episodesCtrl.dispose();
+    _linkCtrl.dispose();
     super.dispose();
   }
 
@@ -266,51 +271,13 @@ class _AddEditScreenState extends State<AddEditScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        automaticallyImplyLeading: false,
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: surfaceColor,
-        title: Row(
-          children: [
-            Container(
-              width: 3,
-              height: 22,
-              margin: const EdgeInsets.only(right: 10),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                ),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isEdit ? 'Edit Item' : 'Add Item',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-                  ),
-                ),
-                ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                  ).createShader(bounds),
-                  child: const Text(
-                    'Manage your watchlist item',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+        centerTitle: false,
+        title: CustomHeader(
+          title: isEdit ? 'Edit Item' : 'Add Item',
+          subtitle: 'Manage your watchlist item',
         ),
       ),
       body: _isLoading
@@ -325,13 +292,11 @@ class _AddEditScreenState extends State<AddEditScreen> {
               _buildPosterSection(isDark),
               const SizedBox(height: 16),
 
-              // 🆕 UPDATED TITLE FIELD WITH SEARCH BUTTON
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: _buildTextField(_titleCtrl, 'Title *', isDark,
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null),
+                    child: _buildTextField(_titleCtrl, 'Title *', isDark, validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null),
                   ),
                   const SizedBox(width: 8),
                   SizedBox(
@@ -350,60 +315,59 @@ class _AddEditScreenState extends State<AddEditScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 12),
 
               _buildDropdown(
-                'Category',
-                Category.all,
-                _category,
+                'Category', Category.all, _category,
                     (v) => setState(() {
                   _category = v!;
-                  _watchSource = null;
+                  if (!_watchOptions.contains(_watchSource)) {
+                    _watchSource = 'None';
+                    _linkCtrl.clear();
+                  }
                 }),
                 isDark,
               ),
-
               const SizedBox(height: 12),
 
-              _buildDropdown('Status', WatchStatus.all, _status,
-                      (v) => setState(() => _status = v!), isDark),
-
+              _buildDropdown('Status', WatchStatus.all, _status, (v) => setState(() => _status = v!), isDark),
               const SizedBox(height: 12),
 
-              _buildTextField(_yearCtrl, 'Release Year', isDark,
-                  keyboardType: TextInputType.number, maxLength: 4),
-
+              _buildTextField(_yearCtrl, 'Release Year', isDark, keyboardType: TextInputType.number, maxLength: 4),
               const SizedBox(height: 12),
 
-              _buildDropdown(
-                'Hindi Available?',
-                ['Yes', 'No'],
-                _hindiAvailable,
-                    (v) => setState(() => _hindiAvailable = v!),
-                isDark,
-              ),
-
+              _buildDropdown('Hindi Available?', ['Yes', 'No'], _hindiAvailable, (v) => setState(() => _hindiAvailable = v!), isDark),
               const SizedBox(height: 12),
 
               _buildDropdown(
                 'Where to Watch',
                 _watchOptions,
-                _watchSource ?? _watchOptions.first,
-                    (v) => setState(() => _watchSource = v),
+                _watchSource,
+                    (v) => setState(() {
+                  _watchSource = v!;
+                  if (_watchSource == 'None') {
+                    _linkCtrl.clear();
+                  }
+                }),
                 isDark,
               ),
 
-              const SizedBox(height: 12),
+              if (_watchSource != 'None') ...[
+                const SizedBox(height: 12),
+                _buildTextField(
+                  _linkCtrl,
+                  'Stream URL / Link (Optional)',
+                  isDark,
+                  keyboardType: TextInputType.url,
+                  prefixIcon: const Icon(Icons.link, color: Colors.grey),
+                ),
+              ],
 
+              const SizedBox(height: 12),
               _buildMultiSelectDropdown('Genres', Genre.all, _selectedGenres, isDark),
-
               const SizedBox(height: 12),
-
               _buildTextField(_descCtrl, 'Description', isDark, maxLines: 3),
-
               const SizedBox(height: 12),
-
               _buildRatingSlider(isDark),
 
               if (_showSeasonEp) ...[
@@ -412,7 +376,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
               ],
 
               const SizedBox(height: 24),
-
               SizedBox(
                 width: double.infinity,
                 child: DecoratedBox(
@@ -432,7 +395,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 24),
             ],
           ),
@@ -458,7 +420,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
           clipBehavior: Clip.antiAlias,
           child: _posterPath != null
               ? Stack(fit: StackFit.expand, children: [
-            // 🆕 UPDATED TO HANDLE BOTH WEB URLS AND LOCAL FILES
             _posterPath!.startsWith('http')
                 ? CachedNetworkImage(
               imageUrl: _posterPath!,
@@ -503,11 +464,13 @@ class _AddEditScreenState extends State<AddEditScreen> {
         TextInputType? keyboardType,
         int maxLines = 1,
         int? maxLength,
+        Widget? prefixIcon,
       }) {
     return TextFormField(
       controller: ctrl,
       decoration: InputDecoration(
         labelText: label,
+        prefixIcon: prefixIcon,
         filled: true,
         fillColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -621,9 +584,9 @@ class _AddEditScreenState extends State<AddEditScreen> {
           children: [
             const Text('Rating', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
             Text('${_rating.toStringAsFixed(1)} / 10',
-              style: TextStyle(
+              style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: const Color(0xFFFFD700)),
+                  color: Color(0xFFFFD700)),
             ),
           ],
         ),

@@ -10,6 +10,7 @@ import '../../data/models/watch_item.dart';
 import '../../widgets/poster_card.dart';
 import '../add_edit/add_edit_screen.dart';
 import '../detail/detail_screen.dart';
+import '../../widgets/custom_header.dart';
 
 class WatchlistScreen extends StatefulWidget {
   const WatchlistScreen({super.key});
@@ -86,7 +87,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> with SingleTickerProv
           elevation: 0,
           scrolledUnderElevation: 0,
           backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
-          title: const Text('My Watchlist', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
+          centerTitle: false, // 🆕 Ensures it stays aligned to the left
+          title: const CustomHeader(title: 'My Watchlist', subtitle: 'Track your shows'), // 🆕 New Header!
 
           actions: [
             // ── 🆕 CONDITIONAL DICE: Only shows on the Planned tab (Index 2)
