@@ -1,105 +1,100 @@
-# EzzeWatchList 🎬
+# 🎬 EzzeWatchList  (A Ezze Softwares Product)
 
-A personal movie & series watchlist tracker built with **Flutter + Dart**.
+[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
+[![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?style=flat-square&logo=dart)](https://dart.dev/)
+[![Database](https://img.shields.io/badge/Database-SQLite-003B57?style=flat-square&logo=sqlite)](https://pub.dev/packages/sqflite)
+[![State Management](https://img.shields.io/badge/State-Provider-FFCA28?style=flat-square)](#)
 
-## Features
-- 🏠 **Home** — Tabbed grid view (Watched / Watching / Planned)
-- ➕ **Add / Edit** — Poster upload, genres, rating slider, season/episode for series
-- 📄 **Detail** — Full info with collapsing poster header, edit & delete
-- 🔍 **Search & Filter** — Real-time search by title + genre & category chips
-- 📊 **Stats** — Total count, watched count, average rating, top genre
-- 🌙 **Settings** — Dark mode toggle, Supabase sync placeholder
+> A premium, highly polished personal movie & series watchlist tracker built with **Flutter** and **Dart**. Keep track of your cinematic journey with beautiful UI, robust local storage, and seamless animations.
 
-## Tech Stack
-| Layer        | Technology                   |
-|-------------|------------------------------|
-| Framework   | Flutter 3.x                  |
-| Language    | Dart 3.x                     |
-| Database    | SQLite via `sqflite`         |
-| State       | `provider` (ChangeNotifier)  |
-| Image Pick  | `image_picker`               |
-| Dark Mode   | `shared_preferences`         |
+---
 
-## Getting Started
+## 📸 App Preview
 
-### Prerequisites
-- Flutter SDK ≥ 3.0.0 installed ([flutter.dev](https://flutter.dev/docs/get-started/install))
-- Android Studio with Android SDK installed
-- A connected Android device or emulator
+<p align="center">
+  <img src="assets/icon/splash.gif" alt="EzzeWatchList Splash Animation" width="280"/>
+</p>
 
-### ⚡ Quick Setup (Recommended)
+---
 
-The fastest way to get running — this generates all native Android files correctly
-and sets up `local.properties` with your machine's actual SDK paths automatically:
+## ✨ Key Features
 
-```bash
-# 1. Extract the zip and open a terminal in the EzzeWatchList/ folder
+- 🏠 **Dynamic Library** — Tabbed grid view organized by *Watched*, *Watching*, and *Planned*
+- ➕ **Comprehensive Entry** — Add/Edit shows with posters, genres, rating sliders, and episode tracking
+- 📄 **Immersive Details** — Hero-animated poster header with detailed view
+- 🔍 **Smart Search & Filter** — Real-time search with genre/category filters
+- 📊 **User Statistics** — Runtime tracking, average rating, top genre insights
+- 🌙 **Adaptive Theming** — Persistent Dark/Light mode toggle
 
-# 2. Let Flutter scaffold the native platform files (won't touch your Dart code)
-flutter create . --org com.ezzewatchlist
+---
 
-# 3. Install dependencies
-flutter pub get
+## 🛠️ Tech Stack
 
-# 4. Run the app
-flutter run
-```
+| Layer | Technology |
+|------|-----------|
+| **Framework** | Flutter 3.x |
+| **Language** | Dart 3.x |
+| **Database** | SQLite (`sqflite`) |
+| **State Management** | Provider (`ChangeNotifier`) |
+| **Media Handling** | `image_picker`, `cached_network_image` |
+| **Persistence** | `shared_preferences` |
 
-### Manual Setup (if you prefer not to run flutter create)
+---
+### 📌 Prerequisites
 
-If you want to use the Android files already in the zip:
+- Flutter SDK ≥ 3.0.0 ([Install Guide](https://flutter.dev/docs/get-started/install))
+- Android Studio with SDK
+- Emulator or physical device
 
-1. Open `android/local.properties`
-2. Update `sdk.dir` to your Android SDK path
-3. Update `flutter.sdk` to your Flutter installation path
-4. Then run:
+---
 
-```bash
-flutter pub get
-flutter run
-```
+## 📁 Project Architecture
 
-**Windows paths example:**
-```
-sdk.dir=C\:\\Users\\YourName\\AppData\\Local\\Android\\sdk
-flutter.sdk=C\:\\flutter
-```
-
-**macOS/Linux paths example:**
-```
-sdk.dir=/Users/yourname/Library/Android/sdk
-flutter.sdk=/home/yourname/flutter
-```
-
-
-## Project Structure
 ```
 lib/
-├── main.dart                   # Entry point, providers setup
+├── main.dart
 ├── data/
-│   ├── models/watch_item.dart  # WatchItem + constants (WatchStatus, Category, Genre)
-│   └── database/
-│       ├── db_helper.dart      # SQLite CRUD & queries
-│       └── watch_provider.dart # ChangeNotifier (state management)
+│   ├── models/
+│   ├── database/
+│   └── network/
 ├── ui/
-│   ├── main_scaffold.dart      # Bottom NavigationBar shell
-│   ├── home/home_screen.dart   # TabBar + grid views
-│   ├── add_edit/               # Add & Edit form
-│   ├── detail/                 # Detail screen
-│   ├── search/                 # Search + filter
-│   ├── stats/                  # Stats dashboard
-│   └── settings/               # Settings (dark mode, future sync)
+│   ├── splash/
+│   ├── home/
+│   ├── add_edit/
+│   ├── detail/
+│   ├── search/
+│   ├── stats/
+│   └── profile/
 ├── widgets/
-│   └── poster_card.dart        # Reusable grid card
+│   └── poster_card.dart
 └── utils/
-    ├── app_theme.dart           # Material3 light/dark themes
-    └── theme_provider.dart      # Dark mode persistence
-
-## Future Upgrade: Supabase
-To add Supabase login & cloud sync, update `WatchRepository` in
-`lib/data/database/watch_provider.dart`:
-1. Add `supabase_flutter` to `pubspec.yaml`
-2. Initialize Supabase in `main.dart`
-3. In `WatchProvider`, replace `DbHelper` calls with Supabase table queries
-4. Add auth screens and connect the Settings "Connect Account" button
+    ├── app_theme.dart
+    └── theme_provider.dart
 ```
+
+---
+
+## 🔮 Future Roadmap: Supabase Cloud Sync
+
+Planned upgrade to enable cloud synchronization.
+
+### Implementation Steps
+
+1. Add dependency:
+```yaml
+supabase_flutter
+```
+
+2. Initialize in `main.dart`
+
+3. Create sync service:
+- Two-way sync (SQLite ↔ Supabase)
+
+4. Connect UI button:
+- `SyncService.syncCloudToLocal()`
+
+---
+
+## ❤️ Developer
+
+Developed by **Imran Hasan**
