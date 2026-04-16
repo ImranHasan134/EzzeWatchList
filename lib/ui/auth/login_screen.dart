@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../../data/network/auth_service.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -58,7 +59,14 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final goldColor = const Color(0xFFFFD700);
+
+    // ── 🆕 GRADIENT DEFINITION ──
+    final goldGradient = const LinearGradient(
+      colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+    );
+    final baseGold = const Color(0xFFFFD700); // Used for borders and spinners
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
@@ -71,13 +79,20 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // ── LOGO ──
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: goldColor.withOpacity(0.1),
+                Align(
+                  alignment: Alignment.center,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: baseGold.withOpacity(0.1),
+                    ),
+                    // ── 🆕 GRADIENT ICON ──
+                    child: ShaderMask(
+                      shaderCallback: (bounds) => goldGradient.createShader(bounds),
+                      child: const Icon(Icons.movie_creation_rounded, size: 70, color: Colors.white),
+                    ),
                   ),
-                  child: Icon(Icons.movie_creation_rounded, size: 70, color: goldColor),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -95,29 +110,43 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 // ── INPUT FIELDS ──
                 if (!_isLogin) ...[
-                  _buildTextField(controller: _nameCtrl, label: 'Full Name', icon: Icons.person_outline, isDark: isDark),
+                  _buildTextField(controller: _nameCtrl, label: 'Full Name', icon: Icons.person_outline, isDark: isDark, baseGold: baseGold),
                   const SizedBox(height: 16),
                 ],
 
-                _buildTextField(controller: _emailCtrl, label: 'Email Address', icon: Icons.email_outlined, isDark: isDark, isEmail: true),
+                _buildTextField(controller: _emailCtrl, label: 'Email Address', icon: Icons.email_outlined, isDark: isDark, isEmail: true, baseGold: baseGold),
                 const SizedBox(height: 16),
 
-                _buildTextField(controller: _passwordCtrl, label: 'Password', icon: Icons.lock_outline, isDark: isDark, isPassword: true),
+                _buildTextField(controller: _passwordCtrl, label: 'Password', icon: Icons.lock_outline, isDark: isDark, isPassword: true, baseGold: baseGold),
                 const SizedBox(height: 32),
 
                 // ── AUTH BUTTONS ──
                 _isLoading
-                    ? Center(child: CircularProgressIndicator(color: goldColor))
-                    : FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: goldColor,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 4,
+                    ? Center(child: CircularProgressIndicator(color: baseGold))
+                    : Container(
+                  // ── 🆕 GRADIENT BUTTON WRAPPER ──
+                  decoration: BoxDecoration(
+                    gradient: goldGradient,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                          color: baseGold.withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4)
+                      )
+                    ],
                   ),
-                  onPressed: _submitEmailAuth,
-                  child: Text(_isLogin ? 'Sign In' : 'Create Account', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.transparent, // Let the gradient show through
+                      shadowColor: Colors.transparent,     // Prevent default shadows from clashing
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: _submitEmailAuth,
+                    child: Text(_isLogin ? 'Sign In' : 'Create Account', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
                 ),
 
                 const SizedBox(height: 16),
@@ -146,7 +175,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 OutlinedButton.icon(
                   onPressed: _isLoading ? null : _submitGoogleAuth,
-                  icon: Image.network('https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg', height: 24), // Official Google Logo
+                  icon: SvgPicture.network(
+                    'https://upload.wikimedia.org/wikipedia/commons/3/3c/Google_Favicon_2025.svg',
+                    height: 24,
+                  ),
                   label: const Text('Continue with Google', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -164,7 +196,15 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // Helper widget for clean text fields
-  Widget _buildTextField({required TextEditingController controller, required String label, required IconData icon, required bool isDark, bool isPassword = false, bool isEmail = false}) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required bool isDark,
+    required Color baseGold, // Added baseGold requirement for the border
+    bool isPassword = false,
+    bool isEmail = false
+  }) {
     return TextField(
       controller: controller,
       obscureText: isPassword,
@@ -177,7 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
         filled: true,
         fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFFFD700), width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: baseGold, width: 1.5)),
       ),
     );
   }

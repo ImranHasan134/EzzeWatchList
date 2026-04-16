@@ -31,7 +31,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   final _descCtrl     = TextEditingController();
   final _seasonsCtrl  = TextEditingController();
   final _episodesCtrl = TextEditingController();
-  final _linkCtrl     = TextEditingController(); // 🆕 Controller for the new URL field
+  final _linkCtrl     = TextEditingController();
 
   String _category = Category.movie;
   String _status   = WatchStatus.planned;
@@ -52,7 +52,6 @@ class _AddEditScreenState extends State<AddEditScreen> {
     if (widget.itemId != null) _loadItem();
   }
 
-  // Dynamic options with "None" and "Watch Here"
   List<String> get _watchOptions {
     if (_category == Category.animeSeries || _category == Category.animeMovie) {
       return ['None', 'MLWBD', 'MovieBox', 'HiAnime', 'Watch Here'];
@@ -62,11 +61,14 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
   bool get _showSeasonEp => _category == Category.webSeries || _category == Category.animeSeries;
 
+  // ── PRESERVED FUNCTIONS ──────────────────────────────────────
+
   Future<void> _loadItem() async {
     setState(() => _isLoading = true);
     final item = await context.read<WatchProvider>().getItemById(widget.itemId!);
     if (item != null && mounted) {
       _editingItem = item;
+      _tmdbId = item.tmdbId;
       _titleCtrl.text    = item.title;
       _yearCtrl.text     = item.releaseYear;
       _descCtrl.text     = item.description;
@@ -74,10 +76,9 @@ class _AddEditScreenState extends State<AddEditScreen> {
       _status            = item.status;
       _rating            = item.rating;
       _posterPath        = item.posterPath;
-
-      // 🔴 FIXED: Null-safety check for watchSource
       _watchSource       = (item.watchSource == null || item.watchSource!.isEmpty) ? 'None' : item.watchSource!;
       _linkCtrl.text     = item.showLink ?? '';
+      _hindiAvailable    = item.hindiAvailable ?? 'No';
 
       _selectedGenres.addAll(item.genres.split(',').where((g) => g.isNotEmpty));
       if (item.seasons != null)  _seasonsCtrl.text  = item.seasons.toString();
@@ -90,119 +91,77 @@ class _AddEditScreenState extends State<AddEditScreen> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
-
     final appDir = await getApplicationDocumentsDirectory();
     final postersDir = Directory(p.join(appDir.path, 'posters'));
     if (!await postersDir.exists()) await postersDir.create(recursive: true);
-
     final fileName = '${DateTime.now().millisecondsSinceEpoch}${p.extension(picked.path)}';
     final savedFile = await File(picked.path).copy(p.join(postersDir.path, fileName));
-
     setState(() => _posterPath = savedFile.path);
   }
-
-  // ── TMDB SEARCH METHODS ────────────────────────────────────
 
   Future<void> _searchApi() async {
     final query = _titleCtrl.text.trim();
     if (query.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter a title to search first.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a title to search.')));
       return;
     }
-
     setState(() => _isSearchingApi = true);
-
     List<Map<String, dynamic>> results = [];
     if (_category == Category.animeSeries || _category == Category.animeMovie) {
       results = await JikanService().searchAnime(query);
     } else {
       results = await TmdbService().searchContent(query);
     }
-
     setState(() => _isSearchingApi = false);
-
     if (results.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No results found on ${(_category == Category.animeSeries || _category == Category.animeMovie) ? 'Jikan' : 'TMDB'}.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No results found.')));
       return;
     }
-
     if (!mounted) return;
     _showSearchResults(results);
   }
 
   void _showSearchResults(List<Map<String, dynamic>> results) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
     showModalBottomSheet(
       context: context,
-      backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
+        return ListView.builder(
+          padding: const EdgeInsets.all(20),
           itemCount: results.length,
-          separatorBuilder: (_, __) => const Divider(height: 1, color: Colors.grey),
           itemBuilder: (ctx, i) {
             final item = results[i];
             return ListTile(
-              contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              leading: item['posterPath'] != null
-                  ? ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: CachedNetworkImage(
-                  imageUrl: item['posterPath'],
-                  width: 50,
-                  height: 75,
-                  fit: BoxFit.cover,
-                  errorWidget: (context, url, error) => const Icon(Icons.movie),
-                ),
-              )
-                  : const Icon(Icons.movie, size: 50),
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: item['posterPath'] != null
+                    ? CachedNetworkImage(imageUrl: item['posterPath'], width: 50, height: 75, fit: BoxFit.cover)
+                    : Container(color: Colors.grey, width: 50, height: 75),
+              ),
               title: Text(item['title'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text('${item['releaseYear']} • ${item['category']}'),
-              trailing: Text('⭐ ${item['rating']}', style: const TextStyle(color: Color(0xFFFFD700))),
               onTap: () async {
                 Navigator.pop(ctx);
-
                 final tmdbId = item['tmdbId'];
                 final category = item['category'] ?? 'Movie';
-
-                int? fetchedSeasons;
-                int? fetchedEpisodes;
-
+                int? fetchedSeasons; int? fetchedEpisodes;
                 if (tmdbId != null && (category == 'Web Series' || category == 'Anime Series')) {
                   final tvDetails = await TmdbService().getTvSeasonEpisode(tmdbId);
-                  fetchedSeasons = tvDetails['seasons'];
-                  fetchedEpisodes = tvDetails['episodes'];
+                  fetchedSeasons = tvDetails['seasons']; fetchedEpisodes = tvDetails['episodes'];
                 }
-
                 setState(() {
                   _tmdbId = tmdbId;
                   _titleCtrl.text = item['title'] ?? '';
                   _category = category;
-
-                  if (fetchedSeasons != null && fetchedSeasons > 0) {
-                    _seasonsCtrl.text = fetchedSeasons.toString();
-                  } else {
-                    _seasonsCtrl.clear();
-                  }
-
-                  if (fetchedEpisodes != null && fetchedEpisodes > 0) {
-                    _episodesCtrl.text = fetchedEpisodes.toString();
-                  } else {
-                    _episodesCtrl.clear();
-                  }
-
+                  _seasonsCtrl.text = fetchedSeasons?.toString() ?? '';
+                  _episodesCtrl.text = fetchedEpisodes?.toString() ?? '';
                   _yearCtrl.text = item['releaseYear'] ?? '';
                   _descCtrl.text = item['description'] ?? '';
-                  _rating = item['rating'] ?? 0.0;
+                  _rating = item['rating'] ?? 5.0;
                   _posterPath = item['posterPath'];
-
                   if (item['genres'] != null) {
                     _selectedGenres.clear();
                     _selectedGenres.addAll(List<String>.from(item['genres']));
@@ -216,11 +175,8 @@ class _AddEditScreenState extends State<AddEditScreen> {
     );
   }
 
-  // ──────────────────────────────────────────────────────────
-
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-
     final item = WatchItem(
       id: _editingItem?.id,
       tmdbId: _tmdbId,
@@ -239,14 +195,8 @@ class _AddEditScreenState extends State<AddEditScreen> {
       watchSource: _watchSource == 'None' ? '' : _watchSource,
       showLink: _linkCtrl.text.trim(),
     );
-
     final provider = context.read<WatchProvider>();
-    if (_editingItem == null) {
-      provider.addItem(item);
-    } else {
-      provider.updateItem(item);
-    }
-
+    if (_editingItem == null) provider.addItem(item); else provider.updateItem(item);
     Navigator.pop(context);
   }
 
@@ -261,141 +211,93 @@ class _AddEditScreenState extends State<AddEditScreen> {
     super.dispose();
   }
 
+  // ── UI RENDERING ──────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.itemId != null;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5);
-    final surfaceColor = isDark ? const Color(0xFF141414) : Colors.white;
+    final bgColor = isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF8F9FA);
 
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
         elevation: 0,
-        scrolledUnderElevation: 0,
-        backgroundColor: surfaceColor,
-        centerTitle: false,
-        title: CustomHeader(
-          title: isEdit ? 'Edit Item' : 'Add Item',
-          subtitle: 'Manage your watchlist item',
-        ),
+        backgroundColor: Colors.transparent,
+        title: Text(widget.itemId == null ? 'Add Media' : 'Edit Details',
+            style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildPosterSection(isDark),
+              _buildModernPoster(isDark),
+              const SizedBox(height: 32),
+
+              _buildSectionHeader('SHOW TITLE'),
+              const SizedBox(height: 16),
+              _buildTitleField(isDark),
               const SizedBox(height: 16),
 
+              _buildLabel('Category'),
+              _buildChoiceChips(Category.all, _category, (val) => setState(() => _category = val), isDark),
+
+              const SizedBox(height: 16),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: _buildTextField(_titleCtrl, 'Title *', isDark, validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    height: 55,
-                    child: IconButton.filled(
-                      onPressed: _isSearchingApi ? null : _searchApi,
-                      icon: _isSearchingApi
-                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                          : const Icon(Icons.search),
-                      style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFD700),
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  ),
+                  Expanded(child: _buildModernField(_yearCtrl, 'Release Year', Icons.calendar_today_rounded, isDark, keyboard: TextInputType.number)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildHindiToggle(isDark)),
                 ],
               ),
-              const SizedBox(height: 12),
 
-              _buildDropdown(
-                'Category', Category.all, _category,
-                    (v) => setState(() {
-                  _category = v!;
-                  if (!_watchOptions.contains(_watchSource)) {
-                    _watchSource = 'None';
-                    _linkCtrl.clear();
-                  }
-                }),
-                isDark,
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 32),
+              _buildSectionHeader('WATCH DETAILS'),
+              const SizedBox(height: 16),
+              _buildLabel('Watch Status'),
+              _buildChoiceChips(WatchStatus.all, _status, (val) => setState(() => _status = val), isDark),
 
-              _buildDropdown('Status', WatchStatus.all, _status, (v) => setState(() => _status = v!), isDark),
-              const SizedBox(height: 12),
-
-              _buildTextField(_yearCtrl, 'Release Year', isDark, keyboardType: TextInputType.number, maxLength: 4),
-              const SizedBox(height: 12),
-
-              _buildDropdown('Hindi Available?', ['Yes', 'No'], _hindiAvailable, (v) => setState(() => _hindiAvailable = v!), isDark),
-              const SizedBox(height: 12),
-
-              _buildDropdown(
-                'Where to Watch',
-                _watchOptions,
-                _watchSource,
-                    (v) => setState(() {
-                  _watchSource = v!;
-                  if (_watchSource == 'None') {
-                    _linkCtrl.clear();
-                  }
-                }),
-                isDark,
-              ),
+              const SizedBox(height: 16),
+              _buildLabel('Watch Platform'), // 🆕 Added Heading
+              _buildModernDropdown('Stream From', _watchOptions, _watchSource, (val) => setState(() => _watchSource = val!), isDark),
 
               if (_watchSource != 'None') ...[
-                const SizedBox(height: 12),
-                _buildTextField(
-                  _linkCtrl,
-                  'Stream URL / Link (Optional)',
-                  isDark,
-                  keyboardType: TextInputType.url,
-                  prefixIcon: const Icon(Icons.link, color: Colors.grey),
-                ),
+                const SizedBox(height: 16),
+                _buildLabel('Stream URL'), // 🆕 Added Heading
+                _buildModernField(_linkCtrl, 'https://...', Icons.link_rounded, isDark),
               ],
 
-              const SizedBox(height: 12),
-              _buildMultiSelectDropdown('Genres', Genre.all, _selectedGenres, isDark),
-              const SizedBox(height: 12),
-              _buildTextField(_descCtrl, 'Description', isDark, maxLines: 3),
-              const SizedBox(height: 12),
-              _buildRatingSlider(isDark),
+              const SizedBox(height: 32),
+              _buildSectionHeader('RATINGS & GENRES'),
+              const SizedBox(height: 16),
+              _buildLabel('Genres'), // 🆕 Added Heading
+              _buildGenreSelector(isDark),
+              const SizedBox(height: 24),
+              _buildModernRating(isDark),
 
               if (_showSeasonEp) ...[
-                const SizedBox(height: 12),
-                _buildSeasonEpisodeRow(isDark),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(child: _buildModernField(_seasonsCtrl, 'Seasons', Icons.layers_rounded, isDark, keyboard: TextInputType.number)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildModernField(_episodesCtrl, 'Episodes', Icons.vibration_rounded, isDark, keyboard: TextInputType.number)),
+                  ],
+                ),
               ],
 
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)]),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.black,
-                      shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    onPressed: _save,
-                    child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
+              _buildLabel('Description'), // 🆕 Added Heading
+              _buildModernField(_descCtrl, 'Storyline / Overview', Icons.description_rounded, isDark, maxLines: 4),
+
+              const SizedBox(height: 40),
+              _buildSaveButton(),
+              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -403,235 +305,182 @@ class _AddEditScreenState extends State<AddEditScreen> {
     );
   }
 
-  // ── HELPER WIDGETS ──────────────────────────────────────────
+  // ── PREMIUM UI HELPERS ──────────────────────────────────────
 
-  Widget _buildPosterSection(bool isDark) {
+  Widget _buildSectionHeader(String title) {
+    return Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: Colors.grey));
+  }
+
+  Widget _buildLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0, left: 4),
+      child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+    );
+  }
+
+  Widget _buildModernPoster(bool isDark) {
     return Center(
       child: GestureDetector(
         onTap: _pickImage,
         child: Container(
-          width: 140,
-          height: 200,
+          width: 150, height: 220,
           decoration: BoxDecoration(
-            color: isDark ? Colors.white10 : Colors.black12,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isDark ? Colors.white24 : Colors.black26),
+            borderRadius: BorderRadius.circular(20),
+            color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
           ),
           clipBehavior: Clip.antiAlias,
           child: _posterPath != null
               ? Stack(fit: StackFit.expand, children: [
             _posterPath!.startsWith('http')
-                ? CachedNetworkImage(
-              imageUrl: _posterPath!,
-              fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => _posterPlaceholder(),
-            )
-                : Image.file(File(_posterPath!), fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _posterPlaceholder()),
-            Positioned(
-              bottom: 0, left: 0, right: 0,
-              child: Container(
-                color: Colors.black54,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: const Text(
-                  '📷 Change',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white, fontSize: 12),
-                ),
-              ),
-            ),
+                ? CachedNetworkImage(imageUrl: _posterPath!, fit: BoxFit.cover)
+                : Image.file(File(_posterPath!), fit: BoxFit.cover),
+            Positioned.fill(child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withOpacity(0.7)])))),
+            const Align(alignment: Alignment.bottomCenter, child: Padding(padding: EdgeInsets.all(12), child: Text('CHANGE IMAGE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)))),
           ])
-              : _posterPlaceholder(),
+              : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_photo_alternate_rounded, size: 40, color: Colors.grey), SizedBox(height: 8), Text('Add Poster', style: TextStyle(color: Colors.grey, fontSize: 12))]),
         ),
       ),
     );
   }
 
-  Widget _posterPlaceholder() => const Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      Icon(Icons.add_photo_alternate, size: 40, color: Colors.grey),
-      SizedBox(height: 8),
-      Text('Add Poster Image', style: TextStyle(color: Colors.grey, fontSize: 12)),
-    ],
-  );
+  Widget _buildTitleField(bool isDark) {
+    return TextFormField(
+      controller: _titleCtrl,
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      decoration: InputDecoration(
+        hintText: 'Movie or Show Title',
+        filled: true,
+        fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        suffixIcon: _isSearchingApi
+            ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFD700))))
+            : IconButton(icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFFFFD700)), onPressed: _searchApi),
+      ),
+      validator: (v) => v!.isEmpty ? 'Title required' : null,
+    );
+  }
 
-  Widget _buildTextField(
-      TextEditingController ctrl,
-      String label,
-      bool isDark, {
-        String? Function(String?)? validator,
-        TextInputType? keyboardType,
-        int maxLines = 1,
-        int? maxLength,
-        Widget? prefixIcon,
-      }) {
+  Widget _buildChoiceChips(List<String> options, String current, Function(String) onSelect, bool isDark) {
+    return Wrap(
+      spacing: 8,
+      children: options.map((opt) {
+        final isSelected = current == opt;
+        return ChoiceChip(
+          label: Text(opt, style: TextStyle(color: isSelected ? Colors.black : (isDark ? Colors.white70 : Colors.black87), fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+          selected: isSelected,
+          onSelected: (val) { if (val) onSelect(opt); },
+          selectedColor: const Color(0xFFFFD700),
+          backgroundColor: isDark ? Colors.white10 : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: isSelected ? Colors.transparent : Colors.grey.withOpacity(0.2))),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildModernField(TextEditingController ctrl, String hint, IconData icon, bool isDark, {int maxLines = 1, TextInputType keyboard = TextInputType.text}) {
     return TextFormField(
       controller: ctrl,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: prefixIcon,
-        filled: true,
-        fillColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        counterText: maxLength != null ? null : '',
-      ),
-      validator: validator,
-      keyboardType: keyboardType,
       maxLines: maxLines,
-      maxLength: maxLength,
-    );
-  }
-
-  Widget _buildDropdown(
-      String label,
-      List<String> items,
-      String value,
-      ValueChanged<String?> onChanged,
-      bool isDark,
-      ) {
-    return DropdownButtonFormField<String>(
-      value: value,
+      keyboardType: keyboard,
       decoration: InputDecoration(
-        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon, size: 20, color: Colors.grey),
         filled: true,
-        fillColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
-      items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-      onChanged: onChanged,
     );
   }
 
-  Widget _buildMultiSelectDropdown(String label, List<String> items, Set<String> selected, bool isDark) {
+  Widget _buildHindiToggle(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Text('Hindi?', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const Spacer(),
+          Switch(
+            value: _hindiAvailable == 'Yes',
+            onChanged: (val) => setState(() => _hindiAvailable = val ? 'Yes' : 'No'),
+            activeColor: const Color(0xFFFFD700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModernDropdown(String label, List<String> items, String value, Function(String?) onChanged, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          hint: Text(label),
+          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGenreSelector(bool isDark) {
+    return GestureDetector(
+      onTap: () async {
+        final result = await showDialog<Set<String>>(context: context, builder: (context) {
+          final temp = Set<String>.from(_selectedGenres);
+          return StatefulBuilder(builder: (ctx, setState) => AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+            title: const Text('Genres'),
+            content: SingleChildScrollView(child: Wrap(spacing: 8, children: Genre.all.map((g) => FilterChip(label: Text(g), selected: temp.contains(g), onSelected: (v) => setState(() => v ? temp.add(g) : temp.remove(g)), selectedColor: const Color(0xFFFFD700))).toList())),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(context, temp), child: const Text('Save'))],
+          ));
+        });
+        if (result != null) setState(() => _selectedGenres..clear()..addAll(result));
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03), borderRadius: BorderRadius.circular(16)),
+        child: Text(_selectedGenres.isEmpty ? 'Tap to select genres...' : _selectedGenres.join(', '), style: TextStyle(color: _selectedGenres.isEmpty ? Colors.grey : (isDark ? Colors.white : Colors.black))),
+      ),
+    );
+  }
+
+  Widget _buildModernRating(bool isDark) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        GestureDetector(
-          onTap: () async {
-            final result = await showDialog<Set<String>>(
-              context: context,
-              builder: (context) {
-                final tempSelected = Set<String>.from(selected);
-                return StatefulBuilder(
-                  builder: (context, setDialogState) {
-                    return AlertDialog(
-                      backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
-                      title: const Text('Select Genres'),
-                      content: SingleChildScrollView(
-                        child: Column(
-                          children: items.map((e) {
-                            return CheckboxListTile(
-                              value: tempSelected.contains(e),
-                              onChanged: (val) {
-                                setDialogState(() {
-                                  if (val == true) tempSelected.add(e);
-                                  else tempSelected.remove(e);
-                                });
-                              },
-                              title: Text(e, style: TextStyle(color: isDark ? Colors.white : Colors.black)),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.pop(context, tempSelected),
-                          child: const Text('OK'),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            );
-
-            if (result != null) {
-              setState(() => selected
-                ..clear()
-                ..addAll(result));
-            }
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: isDark ? Colors.white24 : Colors.black26),
-            ),
-            child: Text(
-              selected.isEmpty ? 'Select genres' : selected.join(', '),
-              style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
-            ),
-          ),
-        ),
+        Row(children: [const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 20), const SizedBox(width: 8), const Text('Personal Rating', style: TextStyle(fontWeight: FontWeight.bold)), const Spacer(), Text('${_rating.toStringAsFixed(1)}/10', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFFD700)))]),
+        Slider(value: _rating, min: 1, max: 10, divisions: 18, activeColor: const Color(0xFFFFD700), inactiveColor: isDark ? Colors.white10 : Colors.black12, onChanged: (v) => setState(() => _rating = v)),
       ],
     );
   }
 
-  Widget _buildRatingSlider(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Rating', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            Text('${_rating.toStringAsFixed(1)} / 10',
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFFFD700)),
-            ),
-          ],
-        ),
-        Slider(
-          value: _rating,
-          min: 1,
-          max: 10,
-          divisions: 18,
-          label: _rating.toStringAsFixed(1),
-          activeColor: const Color(0xFFFFD700),
-          onChanged: (v) => setState(() => _rating = v),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSeasonEpisodeRow(bool isDark) {
-    return Row(
-      children: [
-        Expanded(
-          child: TextFormField(
-            controller: _seasonsCtrl,
-            decoration: InputDecoration(
-              labelText: 'Seasons',
-              filled: true,
-              fillColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            keyboardType: TextInputType.number,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: TextFormField(
-            controller: _episodesCtrl,
-            decoration: InputDecoration(
-              labelText: 'Episodes',
-              filled: true,
-              fillColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            keyboardType: TextInputType.number,
-          ),
-        ),
-      ],
+  Widget _buildSaveButton() {
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)]),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: const Color(0xFFFFD700).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6))],
+      ),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+        onPressed: _save,
+        child: const Text('SAVE TO WATCHLIST', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+      ),
     );
   }
 }

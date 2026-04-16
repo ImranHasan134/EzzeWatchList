@@ -40,6 +40,7 @@ class _DetailScreenState extends State<DetailScreen> {
     super.dispose();
   }
 
+  // ── REFINED LOGIC: AUTOMATIC TMDB FETCHING PRESERVED ──
   Future<void> _loadItem() async {
     final item = await context.read<WatchProvider>().getItemById(widget.itemId);
     if (mounted && item != null) {
@@ -113,7 +114,6 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
-  // ── 🆕 PREMIUM DELETE DIALOG ──
   Future<void> _delete() async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -199,14 +199,17 @@ class _DetailScreenState extends State<DetailScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0B0B0E) : const Color(0xFFF5F5F5), // Deeper dark background
+      backgroundColor: isDark ? const Color(0xFF0B0B0E) : const Color(0xFFF5F5F5),
       body: CustomScrollView(
+        // ── 🆕 BOUNCING PHYSICS ──
+        physics: const BouncingScrollPhysics(),
         slivers: [
           SliverAppBar(
-            expandedHeight: 320, // Slightly taller for a more cinematic feel
+            expandedHeight: 320,
             pinned: true,
+            // ── 🆕 STRETCHY APP BAR ──
+            stretch: true,
             backgroundColor: isDark ? const Color(0xFF0B0B0E) : const Color(0xFFF5F5F5),
-            // ── 🆕 PREMIUM BACK BUTTON ──
             leading: Padding(
               padding: const EdgeInsets.all(8.0),
               child: CircleAvatar(
@@ -218,10 +221,16 @@ class _DetailScreenState extends State<DetailScreen> {
               ),
             ),
             flexibleSpace: FlexibleSpaceBar(
+              // ── 🆕 STRETCHY CINEMATIC BACKDROP ──
+              stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _buildPoster(item),
+                  // ── 🆕 LINKED HERO ANIMATION ──
+                  Hero(
+                    tag: 'hero_poster_${item.tmdbId}',
+                    child: _buildPoster(item),
+                  ),
                   DecoratedBox(
                       decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -238,7 +247,7 @@ class _DetailScreenState extends State<DetailScreen> {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), // Better edge padding
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -362,16 +371,24 @@ class _DetailScreenState extends State<DetailScreen> {
                     const SizedBox(height: 32),
                   ],
 
-                  // ── 🆕 PREMIUM MODERN BUTTONS ──
+                  // ── 🆕 ACTION BUTTON GRADIENTS & SHADOWS ──
                   if (item.status == WatchStatus.planned) ...[
                     Row(
                       children: [
                         Expanded(
                           child: Container(
                             decoration: BoxDecoration(
+                              // ── 🆕 SIGNATURE GRADIENT ──
                               gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)]),
                               borderRadius: BorderRadius.circular(24),
-                              boxShadow: [BoxShadow(color: const Color(0xFFFFD700).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+                              // ── 🆕 SOFT SHADOW ──
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFFD700).withOpacity(0.3),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                )
+                              ],
                             ),
                             child: FilledButton.icon(
                                 onPressed: () => _changeStatus(WatchStatus.watching),
@@ -393,7 +410,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                 icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 20),
                                 label: const Text('Mark Watched', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF2E7D32), // Deep premium green
+                                  backgroundColor: const Color(0xFF2E7D32),
                                   padding: const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                                 )
@@ -421,7 +438,7 @@ class _DetailScreenState extends State<DetailScreen> {
                             label: const Text('Mark as Finished', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFF2E7D32),
-                              shadowColor: Colors.transparent, // Prevents double shadows
+                              shadowColor: Colors.transparent,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                             )
@@ -437,6 +454,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       height: 120,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(), // Bouncing cast list
                         itemCount: _castMembers.length,
                         itemBuilder: (context, index) => _buildCastCard(_castMembers[index]),
                       ),
@@ -444,7 +462,6 @@ class _DetailScreenState extends State<DetailScreen> {
                     const SizedBox(height: 32),
                   ],
 
-                  // ── Edit / Delete ──
                   Row(
                     children: [
                       Expanded(

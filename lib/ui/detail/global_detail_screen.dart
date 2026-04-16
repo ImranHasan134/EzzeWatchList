@@ -63,7 +63,7 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
         if (videoId != null) {
           _ytController = YoutubePlayerController(
             initialVideoId: videoId,
-            flags: const YoutubePlayerFlags(autoPlay: false, forceHD: true),
+            flags: const YoutubePlayerFlags(autoPlay: false, forceHD: true, mute: false),
           );
         }
       }
@@ -107,6 +107,7 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
           content: Text('${newItem.title} added to Watchlist!'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
     }
@@ -119,9 +120,7 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
     final bgColor = isDark ? const Color(0xFF0B0B0E) : const Color(0xFFF5F5F5);
 
     final provider = context.watch<WatchProvider>();
-    final isAlreadySaved = provider.watched.any((db) => db.tmdbId == item['tmdbId']) ||
-        provider.watching.any((db) => db.tmdbId == item['tmdbId']) ||
-        provider.planned.any((db) => db.tmdbId == item['tmdbId']);
+    final isAlreadySaved = provider.items.any((db) => db.tmdbId == item['tmdbId']);
 
     final backdropImg = item['backdropPath'] ?? item['posterPath'];
     final genres = item['genres'] as List<String>? ?? [];
@@ -129,40 +128,43 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       body: CustomScrollView(
+        physics: const BouncingScrollPhysics(), // 🆕 Tactile scrolling
         slivers: [
-          // ── BACKDROP APP BAR ──
+          // ── CINEMATIC BACKDROP ──
           SliverAppBar(
-            expandedHeight: 220, // 🆕 Slightly shorter for better balance
+            expandedHeight: 300, // 🆕 Taller for more drama
             pinned: true,
+            stretch: true, // 🆕 Image grows when pulled down
             backgroundColor: bgColor,
             elevation: 0,
             leading: Padding(
               padding: const EdgeInsets.all(8.0),
               child: CircleAvatar(
-                backgroundColor: Colors.black.withOpacity(0.5),
+                backgroundColor: Colors.black45,
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
             ),
             flexibleSpace: FlexibleSpaceBar(
+              stretchModes: const [StretchMode.zoomBackground],
               background: Stack(
                 fit: StackFit.expand,
                 children: [
                   if (backdropImg != null)
                     CachedNetworkImage(
-                      imageUrl: item['backdropPath'] ?? item['posterPath'], // 🆕 This will now automatically pull the 1280px version!
+                      imageUrl: backdropImg,
                       fit: BoxFit.cover,
                       alignment: Alignment.topCenter,
                     ),
-                  DecoratedBox(
+                  const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, bgColor],
-                        stops: const [0.4, 1.0], // 🆕 Smoother fade
+                        colors: [Colors.transparent, Colors.black87, Colors.black],
+                        stops: [0.3, 0.85, 1.0],
                       ),
                     ),
                   ),
@@ -171,94 +173,77 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
             ),
           ),
 
-          // ── CONTENT ──
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 8), // 🆕 Clean spacing, NO more negative offset
+                  const SizedBox(height: 16),
 
-                  // ── CLEAN POSTER & TITLE SECTION ──
+                  // ── POSTER & TITLE SECTION ──
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // The Poster
-                      Container(
-                        width: 115, // 🆕 Standardized poster width
-                        height: 170, // 🆕 Standardized poster height
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: item['posterPath'] != null
-                              ? CachedNetworkImage(imageUrl: item['posterPath'], fit: BoxFit.cover)
-                              : Container(color: Colors.grey.shade900, child: const Icon(Icons.movie, color: Colors.white54)),
+                      // ── 🆕 HERO POSTER ──
+                      // Ensure this tag matches the categoryType logic from Home/SeeAll
+                      Hero(
+                        tag: 'hero_poster_${item['tmdbId']}',
+                        child: Container(
+                          width: 120,
+                          height: 180,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: item['posterPath'] != null
+                                ? CachedNetworkImage(imageUrl: item['posterPath'], fit: BoxFit.cover)
+                                : Container(color: Colors.grey.shade900, child: const Icon(Icons.movie, color: Colors.white54)),
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 18),
 
-                      // Title & Info
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 4),
-                            // Type Pill
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF6B4DFF).withOpacity(0.2),
+                                color: const Color(0xFFFFD700).withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFFFD700).withOpacity(0.5)),
                               ),
                               child: Text(
                                 (item['category'] ?? 'Movie').toUpperCase(),
-                                style: const TextStyle(color: Color(0xFFA694FF), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
                               ),
                             ),
-                            const SizedBox(height: 8),
-
-                            // Title
-                            Text(item['title'] ?? '', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, height: 1.1)),
-                            const SizedBox(height: 8),
-
-                            // Rating & Year Row
+                            const SizedBox(height: 12),
+                            Text(item['title'] ?? '', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, height: 1.15)),
+                            const SizedBox(height: 12),
                             Row(
                               children: [
-                                const Icon(Icons.star, color: Color(0xFFFFD700), size: 14),
+                                const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 18),
                                 const SizedBox(width: 4),
                                 Text(
                                   (item['rating'] as num?)?.toStringAsFixed(1) ?? '0.0',
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                 ),
-                                const SizedBox(width: 12),
-                                const Icon(Icons.calendar_today_outlined, color: Colors.grey, size: 12),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: 16),
+                                const Icon(Icons.calendar_today_rounded, color: Colors.grey, size: 14),
+                                const SizedBox(width: 6),
                                 Text(
-                                  item['releaseYear'] ?? '',
-                                  style: const TextStyle(fontSize: 13, color: Colors.grey),
+                                  item['releaseYear'] ?? 'N/A',
+                                  style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
                                 ),
                               ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Genre Pills
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: genres.take(3).map((genre) => Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(genre, style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.black87)),
-                              )).toList(),
                             ),
                           ],
                         ),
@@ -266,108 +251,138 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
                     ],
                   ),
 
-                  // ── BIG YELLOW ACTION BUTTON ──
-                  Container(
-                    width: double.infinity, // Optional: makes it stretch full width
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      // 1. If saved, use solid green. If not, color is null.
-                      color: isAlreadySaved ? Colors.green : null,
-                      // 2. If saved, gradient is null. If not, use the golden gradient.
-                      gradient: isAlreadySaved
-                          ? null
-                          : const LinearGradient(
-                        colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                  const SizedBox(height: 24),
+
+                  // ── GENRE CHIPS ──
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: genres.map((genre) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                    ),
-                    child: FilledButton.icon(
-                      // Your onPressed and icon/label go here
-                      onPressed: isAlreadySaved ? null : _addToWatchlist,
-                      icon: Icon(isAlreadySaved ? Icons.check : Icons.add, color: Colors.black),
-                      label: Text(
-                        isAlreadySaved ? 'In Your Watchlist' : 'Add to Watchlist',
-                        style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-                      ),
-                      style: FilledButton.styleFrom(
-                        // 3. Make the button itself transparent so the Container shows through!
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent, // Removes weird double-shadows
-                        disabledBackgroundColor: Colors.transparent, // Keeps it clean when disabled
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                      ),
-                    ),
+                      child: Text(genre, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.black87)),
+                    )).toList(),
                   ),
+
                   const SizedBox(height: 32),
 
-                  // ── OVERVIEW ──
-                  // Find the Overview section inside the build method
-                  const Text('Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  Text(
-                    item['description']?.isNotEmpty == true ? item['description'] : 'No description available.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 1.5,
-                      color: isDark ? Colors.white : Colors.black,
+                  // ── ACTION BUTTON ──
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: isAlreadySaved
+                          ? null
+                          : const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)]),
+                      color: isAlreadySaved ? Colors.green.withOpacity(0.2) : null,
+                      border: isAlreadySaved ? Border.all(color: Colors.green, width: 1.5) : null,
+                    ),
+                    child: FilledButton.icon(
+                      onPressed: isAlreadySaved ? null : _addToWatchlist,
+                      icon: Icon(isAlreadySaved ? Icons.check_circle_outline : Icons.add_rounded, color: isAlreadySaved ? Colors.green : Colors.black),
+                      label: Text(
+                        isAlreadySaved ? 'Saved to Watchlist' : 'Add to Watchlist',
+                        style: TextStyle(color: isAlreadySaved ? Colors.green : Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 32),
+
+                  const SizedBox(height: 40),
+
+                  // ── DESCRIPTION ──
+                  const Text('Overview', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Text(
+                    item['description']?.isNotEmpty == true ? item['description'] : 'No storyline provided.',
+                    style: TextStyle(fontSize: 15, height: 1.6, color: isDark ? Colors.white70 : Colors.black87, letterSpacing: 0.2),
+                  ),
+
+                  const SizedBox(height: 40),
 
                   // ── TRAILER ──
                   if (_isLoading)
-                    const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator(color: Color(0xFFFFD700))))
+                    const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator(color: Color(0xFFFFD700))))
                   else if (_ytController != null) ...[
-                    const Text('Trailer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
+                    const Text('Official Trailer', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: YoutubePlayer(controller: _ytController!, showVideoProgressIndicator: true, progressColors: const ProgressBarColors(playedColor: Color(0xFFFFD700), handleColor: Color(0xFFFFD700))),
+                      borderRadius: BorderRadius.circular(16),
+                      child: YoutubePlayer(
+                        controller: _ytController!,
+                        showVideoProgressIndicator: true,
+                        progressColors: const ProgressBarColors(playedColor: Color(0xFFFFD700), handleColor: Color(0xFFFFA500)),
+                      ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 40),
                   ],
 
-                  // ── CAST ──
+                  // ── CAST SECTION ──
                   if (_castMembers.isNotEmpty) ...[
-                    const Text('Cast', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
+                    const Text('Top Cast', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 20),
                     SizedBox(
-                      height: 100,
+                      height: 120,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
                         itemCount: _castMembers.length,
                         itemBuilder: (context, index) {
                           final member = _castMembers[index];
                           return Container(
-                            width: 70,
-                            margin: const EdgeInsets.only(right: 16),
+                            width: 80,
+                            margin: const EdgeInsets.only(right: 20),
                             child: Column(
                               children: [
-                                CircleAvatar(
-                                  radius: 30,
-                                  backgroundColor: Colors.grey.shade800,
-                                  backgroundImage: member.profilePath != null ? CachedNetworkImageProvider('https://image.tmdb.org/t/p/w200${member.profilePath}') : null,
-                                  child: member.profilePath == null ? const Icon(Icons.person, size: 28, color: Colors.white54) : null,
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white10, width: 2),
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 35,
+                                    backgroundColor: Colors.grey.shade900,
+                                    backgroundImage: member.profilePath != null
+                                        ? CachedNetworkImageProvider('https://image.tmdb.org/t/p/w200${member.profilePath}')
+                                        : null,
+                                    child: member.profilePath == null ? const Icon(Icons.person, size: 30, color: Colors.white24) : null,
+                                  ),
                                 ),
-                                const SizedBox(height: 8),
-                                Text(member.name, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, height: 1.1)),
+                                const SizedBox(height: 10),
+                                Text(
+                                    member.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, height: 1.2)
+                                ),
                               ],
                             ),
                           );
                         },
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 40),
                   ],
 
                   // ── SIMILAR CONTENT ──
                   if (_similarContent.isNotEmpty) ...[
-                    const Text('More Like This', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
+                    const Text('More Like This', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 20),
                     SizedBox(
-                      height: 160,
+                      height: 180,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
                         itemCount: _similarContent.length,
                         itemBuilder: (context, index) {
                           final similarItem = _similarContent[index];
@@ -376,8 +391,8 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
                               Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: similarItem)));
                             },
                             child: Container(
-                              width: 100,
-                              margin: const EdgeInsets.only(right: 12),
+                              width: 110,
+                              margin: const EdgeInsets.only(right: 14),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -389,9 +404,9 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
                                           : Container(color: Colors.grey.shade900, child: const Icon(Icons.movie, color: Colors.white24)),
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 8),
                                   Text(
-                                    similarItem['title'] ?? 'Unknown',
+                                    similarItem['title'] ?? 'N/A',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
@@ -405,7 +420,7 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
                     ),
                   ],
 
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 80),
                 ],
               ),
             ),

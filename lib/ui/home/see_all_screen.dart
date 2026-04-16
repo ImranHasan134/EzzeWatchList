@@ -29,7 +29,7 @@ class _SeeAllScreenState extends State<SeeAllScreen> {
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
     try {
-      // 🆕 Fetch 60 items (3 pages) based on category
+      // Fetch 60 items (3 pages) based on category
       final results = await Future.wait([
         _getFetchFunction(1),
         _getFetchFunction(2),
@@ -52,41 +52,94 @@ class _SeeAllScreenState extends State<SeeAllScreen> {
     };
   }
 
+  // ── 🆕 SMOOTH ROUTE TRANSITION (Matches Home Screen) ──
+  void _navigateToDetail(BuildContext context, Map<String, dynamic> item) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 400),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) => GlobalDetailScreen(item: item),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            child: child,
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
         backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0, // Prevents the app bar from changing color when scrolling
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)))
           : GridView.builder(
-        padding: const EdgeInsets.all(12),
+        physics: const BouncingScrollPhysics(), // 🆕 Smooth iOS-style bounce
+        padding: const EdgeInsets.all(16), // Slightly wider padding for breathing room
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3, childAspectRatio: 0.6, crossAxisSpacing: 10, mainAxisSpacing: 16,
+          crossAxisCount: 3,
+          childAspectRatio: 0.58, // Adjusted to give the title more breathing room below
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 20,
         ),
         itemCount: _items.length,
         itemBuilder: (context, index) {
           final item = _items[index];
-          return GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item))),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: CachedNetworkImage(imageUrl: item['posterPath'] ?? '', fit: BoxFit.cover, width: double.infinity),
+
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _navigateToDetail(context, item),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── 🆕 HERO WIDGET ──
+                  Expanded(
+                    child: Hero(
+                      tag: 'hero_${widget.categoryType}_${item['id'] ?? index}',
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: item['posterPath'] != null && item['posterPath'].toString().isNotEmpty
+                            ? CachedNetworkImage(
+                          imageUrl: item['posterPath'],
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          fadeInDuration: const Duration(milliseconds: 300),
+                        )
+                            : Container(
+                          width: double.infinity,
+                          color: Colors.grey.shade900,
+                          child: const Icon(Icons.movie, color: Colors.white54),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(item['title'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              ],
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      item['title'] ?? 'Unknown',
+                      maxLines: 2, // Allow 2 lines so long titles don't cut off awkwardly
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, height: 1.2),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },

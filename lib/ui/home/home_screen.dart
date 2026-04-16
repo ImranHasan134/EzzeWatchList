@@ -28,6 +28,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _carouselTimer;
   int _currentCarouselIndex = 0;
 
+  // ── 🆕 PREMIUM GRADIENT ──
+  final goldGradient = const LinearGradient(
+    colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -62,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startCarousel() {
-    _carouselTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _carouselTimer = Timer.periodic(const Duration(seconds: 6), (timer) {
       if (_pageController.hasClients && _trending.isNotEmpty) {
         int nextIndex = _currentCarouselIndex + 1;
         if (nextIndex >= 10 || nextIndex >= _trending.length) {
@@ -70,45 +77,72 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         _pageController.animateToPage(
           nextIndex,
-          duration: const Duration(milliseconds: 800),
+          duration: const Duration(milliseconds: 900), // Slightly slower for cinematic feel
           curve: Curves.fastOutSlowIn,
         );
       }
     });
   }
 
+  // ── 🆕 SMOOTH ROUTE TRANSITION ──
+  void _navigateToDetail(BuildContext context, Map<String, dynamic> item) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 400),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) => GlobalDetailScreen(item: item),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          // Premium Fade Transition
+          return FadeTransition(
+            opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            child: child,
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5);
 
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
-        // ── 🆕 APP BAR FOR LOADING STATE ──
-        appBar: AppBar(
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
-          centerTitle: false,
-          title: const CustomHeader(title: 'Home', subtitle: 'What to watch today'),
+        backgroundColor: bgColor,
+        body: const Center(
+          child: CircularProgressIndicator(color: Color(0xFFFFD700)),
         ),
-        body: const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700))),
       );
     }
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
-
-      // ── 🆕 THE FIXED APP BAR ──
+      backgroundColor: bgColor,
+      // ── 🆕 EDGE-TO-EDGE UI ──
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
+        backgroundColor: Colors.transparent, // Let the movie image show through
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.8),
+                Colors.transparent,
+              ],
+            ),
+          ),
+        ),
         centerTitle: false,
         title: const CustomHeader(title: 'Home', subtitle: 'What to watch today'),
       ),
 
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(), // 🆕 Smooth iOS-style bounce
         padding: const EdgeInsets.only(bottom: 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,11 +164,12 @@ class _HomeScreenState extends State<HomeScreen> {
     if (topItems.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 500,
+      height: 550, // Slightly taller for more visual impact
       child: Stack(
         children: [
           PageView.builder(
             controller: _pageController,
+            physics: const BouncingScrollPhysics(),
             onPageChanged: (index) => setState(() => _currentCarouselIndex = index),
             itemCount: topItems.length,
             itemBuilder: (context, index) {
@@ -143,56 +178,64 @@ class _HomeScreenState extends State<HomeScreen> {
               final genres = (item['genres'] as List<String>).take(3).join(' • ');
 
               return GestureDetector(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item))),
+                onTap: () => _navigateToDetail(context, item),
                 child: Stack(
                   alignment: Alignment.bottomCenter,
                   children: [
-                    Container(
-                      height: 500,
-                      width: double.infinity,
-                      foregroundDecoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            isDark ? const Color(0xFF0E0E0E).withOpacity(0.8) : const Color(0xFFF5F5F5).withOpacity(0.8),
-                            isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
-                          ],
-                          stops: const [0.4, 0.85, 1.0],
+                    // ── 🆕 HERO WIDGET ──
+                    Hero(
+                      tag: 'hero_carousel_${item['id'] ?? index}',
+                      child: Container(
+                        height: 550,
+                        width: double.infinity,
+                        foregroundDecoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              isDark ? const Color(0xFF0E0E0E).withOpacity(0.5) : const Color(0xFFF5F5F5).withOpacity(0.5),
+                              isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
+                            ],
+                            stops: const [0.4, 0.8, 1.0],
+                          ),
                         ),
+                        child: imagePath != null
+                            ? CachedNetworkImage(
+                          imageUrl: imagePath,
+                          fit: BoxFit.cover,
+                          fadeInDuration: const Duration(milliseconds: 400),
+                        )
+                            : Container(color: Colors.grey.shade900),
                       ),
-                      child: imagePath != null
-                          ? CachedNetworkImage(imageUrl: imagePath, fit: BoxFit.cover)
-                          : Container(color: Colors.grey.shade900),
                     ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 60),
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 50),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFD700).withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFFFD700)),
+                              color: Colors.black45, // Better contrast
+                              borderRadius: BorderRadius.circular(20), // Pill shape
+                              border: Border.all(color: const Color(0xFFFFD700), width: 1.5),
                             ),
                             child: Text(
-                              item['category'] ?? 'Movie',
-                              style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10, fontWeight: FontWeight.bold),
+                              (item['category'] ?? 'Movie').toUpperCase(),
+                              style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10, letterSpacing: 1.2, fontWeight: FontWeight.bold),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           Text(
                             item['title'] ?? '',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, height: 1.1),
+                            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, height: 1.1, letterSpacing: -0.5),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 12),
                           Text(
                             genres,
-                            style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.w600),
+                            style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.w600, letterSpacing: 0.5),
                           ),
                         ],
                       ),
@@ -202,20 +245,24 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
+          // ── PREMIUM DOT INDICATORS ──
           Positioned(
-            bottom: 20,
+            bottom: 16,
             left: 0,
             right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(topItems.length, (dotIndex) {
+                final isActive = _currentCarouselIndex == dotIndex;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: _currentCarouselIndex == dotIndex ? 18 : 6,
-                  height: 6,
+                  curve: Curves.easeOutCubic,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: isActive ? 24 : 8, // Wider active dot
+                  height: 8,
                   decoration: BoxDecoration(
-                    color: _currentCarouselIndex == dotIndex ? const Color(0xFFFFD700) : Colors.grey.withOpacity(0.5),
+                    gradient: isActive ? goldGradient : null,
+                    color: isActive ? null : Colors.white.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 );
@@ -238,13 +285,14 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.3)),
               TextButton(
                 onPressed: () {
                   Navigator.push(context, MaterialPageRoute(
                     builder: (_) => SeeAllScreen(title: title, categoryType: categoryType),
                   ));
                 },
+                style: TextButton.styleFrom(splashFactory: NoSplash.splashFactory), // Cleaner look
                 child: const Text(
                   'See all',
                   style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
@@ -254,46 +302,64 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         SizedBox(
-          height: 260, // Height adjusted for multi-line titles
+          height: 260,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(), // 🆕 Smooth scrolling
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: items.length,
             itemBuilder: (context, index) {
               final item = items[index];
-              return GestureDetector(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item))),
-                child: Container(
-                  width: 130,
-                  margin: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: AspectRatio(
-                          aspectRatio: 2 / 3,
-                          child: item['posterPath'] != null
-                              ? CachedNetworkImage(imageUrl: item['posterPath'], fit: BoxFit.cover)
-                              : Container(color: Colors.grey.shade900, child: const Icon(Icons.movie, color: Colors.white54)),
+              return Container(
+                width: 130,
+                margin: const EdgeInsets.symmetric(horizontal: 6),
+                // ── 🆕 INTERACTIVE MATERIAL WRAPPER ──
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => _navigateToDetail(context, item),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── 🆕 HERO WIDGET ──
+                        Hero(
+                          tag: 'hero_${categoryType}_${item['id'] ?? index}',
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: AspectRatio(
+                              aspectRatio: 2 / 3,
+                              child: item['posterPath'] != null
+                                  ? CachedNetworkImage(
+                                imageUrl: item['posterPath'],
+                                fit: BoxFit.cover,
+                                fadeInDuration: const Duration(milliseconds: 300),
+                              )
+                                  : Container(color: Colors.grey.shade900, child: const Icon(Icons.movie, color: Colors.white54)),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        item['title'] ?? 'Unknown',
-                        maxLines: 2, // Allows title to wrap but limits to 2 lines
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, height: 1.2),
-                        textAlign: TextAlign.start,
-                      ),
-                    ],
+                        const SizedBox(height: 10),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            item['title'] ?? 'Unknown',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, height: 1.2),
+                            textAlign: TextAlign.start,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
             },
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
       ],
     );
   }
