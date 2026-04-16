@@ -19,7 +19,7 @@ class DbHelper {
   }
 
   // ── Table name ─────────────────────────────────────────────
-  static const String tableWatch = 'watch_items';
+  static const String tableWatch = 'EzzeWatchList_watch_items';
 
   Future<Database> _initDb() async {
     final dbPath = await getDatabasesPath();

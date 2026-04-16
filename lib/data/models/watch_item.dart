@@ -54,7 +54,7 @@ class WatchItem {
       'hindiAvailable': hindiAvailable ?? 'No',
       'watchSource': watchSource ?? '',
       'tmdbId': tmdbId,
-      'showLink': showLink, // 🆕 Added to database map
+      'showLink': showLink,
     };
   }
 

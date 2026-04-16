@@ -22,13 +22,13 @@ class WatchProvider extends ChangeNotifier {
   String _searchQuery    = '';
   String _filterGenre    = '';
   String _filterCategory = '';
-  String _sortingOption = 'Recently Added'; // 🆕 sorting state
+  String _sortingOption = 'Recently Added';
 
   List<WatchItem> get searchResults  => _searchResults;
   String get searchQuery    => _searchQuery;
   String get filterGenre    => _filterGenre;
   String get filterCategory => _filterCategory;
-  String get sortingOption => _sortingOption; // expose
+  String get sortingOption => _sortingOption;
 
   int     _watchedCount = 0;
   int     _totalCount   = 0;
@@ -108,7 +108,6 @@ class WatchProvider extends ChangeNotifier {
     await refreshSearch();
   }
 
-  // 🆕 sorting methods
   Future<void> setSortingOption(String option) async {
     _sortingOption = option;
     await refreshSearch();
@@ -119,7 +118,7 @@ class WatchProvider extends ChangeNotifier {
       query: _searchQuery,
       genre: _filterGenre,
       category: _filterCategory,
-      sorting: _sortingOption, // 🆕 Pass sorting
+      sorting: _sortingOption,
     );
     notifyListeners();
   }
@@ -136,7 +135,7 @@ class WatchProvider extends ChangeNotifier {
     if (counts.isEmpty) return null;
     return counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
   }
-// ── 🆕 AUTO-SYNC: THE CLOUD IS THE BOSS ──
+
   // ── 🆕 AUTO-SYNC: THE CLOUD IS THE BOSS ──
   Future<void> autoSyncWithCloud() async {
     try {
@@ -145,26 +144,29 @@ class WatchProvider extends ChangeNotifier {
 
       // 1. Download the absolute latest truth from Supabase
       final cloudData = await Supabase.instance.client
-          .from('watch_items')
+          .from('EzzeWatchList_watch_items') // 🔴 FIXED CLOUD TABLE NAME
           .select()
           .eq('user_id', user.id);
 
-      // 2. Wipe the local SQLite table COMPLETELY clean (Goodbye ghosts)
-      final db = await _db.database; // 🔴 FIXED THIS LINE
-      await db.delete('watch_items');
+      // 2. Wipe the local SQLite table COMPLETELY clean
+      final db = await _db.database;
+      // 🔴 FIXED: Use DbHelper.tableWatch so it safely targets local 'watch_items'
+      await db.delete(DbHelper.tableWatch);
 
       // 3. Re-insert all the fresh data from the cloud
       for (var json in cloudData) {
         // Convert Supabase JSON back to your WatchItem model
         final item = WatchItem.fromMap(json);
-        await db.insert('watch_items', item.toMap());
+        await db.insert(DbHelper.tableWatch, item.toMap()); // 🔴 FIXED
       }
 
       // 4. Reload the UI instantly
       await loadAll();
 
     } catch (e) {
-      print('Auto Sync Failed: $e');
+      if (kDebugMode) {
+        print('Auto Sync Failed: $e');
+      }
     }
   }
 }

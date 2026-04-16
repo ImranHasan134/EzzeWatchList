@@ -11,25 +11,22 @@ class SyncService {
   // ── 1. Push a single item to the cloud ──────────────────────
   static Future<void> pushItem(WatchItem item) async {
     final user = _supabase.auth.currentUser;
-    if (user == null) return; // If logged out, stay local-only
+    if (user == null) return;
 
     try {
-      await _supabase.from('watch_items').upsert({
-        'user_id': user.id,
-        'title': item.title,
-        'category': item.category,
-        'genres': item.genres,
-        'releaseYear': item.releaseYear,
-        'description': item.description,
-        'rating': item.rating,
-        'status': item.status,
-        'posterPath': item.posterPath,
-        'seasons': item.seasons,
-        'episodes': item.episodes,
-        'createdAt': item.createdAt, // This acts as our unique sync ID
-        'hindiAvailable': item.hindiAvailable,
-        'watchSource': item.watchSource,
-      }, onConflict: '"createdAt", user_id');
+      // 🔴 SMART FIX: Use toMap() so you never have to manually type columns again!
+      final itemData = item.toMap();
+
+      // We remove the local SQLite 'id' because Supabase generates its own unique ID.
+      itemData.remove('id');
+
+      // Inject the user_id required for Supabase Row Level Security
+      itemData['user_id'] = user.id;
+
+      await _supabase.from('EzzeWatchList_watch_items').upsert(
+          itemData,
+          onConflict: '"createdAt", user_id'
+      );
     } catch (e) {
       print('Cloud Push Error: $e');
     }
@@ -41,7 +38,7 @@ class SyncService {
     if (user == null) return;
 
     try {
-      await _supabase.from('watch_items')
+      await _supabase.from('EzzeWatchList_watch_items')
           .delete()
           .match({'createdAt': createdAt, 'user_id': user.id});
     } catch (e) {
@@ -56,27 +53,13 @@ class SyncService {
 
     try {
       // Fetch all items from Supabase
-      final response = await _supabase.from('watch_items').select();
+      final response = await _supabase.from('EzzeWatchList_watch_items').select();
       final List<dynamic> data = response;
 
       if (data.isEmpty) return;
 
-      // Convert Supabase rows to Local WatchItem objects
-      final cloudItems = data.map((row) => WatchItem(
-        title: row['title'],
-        category: row['category'],
-        genres: row['genres'],
-        releaseYear: row['releaseYear'] ?? '',
-        description: row['description'] ?? '',
-        rating: (row['rating'] as num).toDouble(),
-        status: row['status'],
-        posterPath: row['posterPath'],
-        seasons: row['seasons'],
-        episodes: row['episodes'],
-        createdAt: row['createdAt'],
-        hindiAvailable: row['hindiAvailable'],
-        watchSource: row['watchSource'],
-      )).toList();
+      // 🔴 SMART FIX: Use fromMap() to automatically parse all new columns perfectly!
+      final cloudItems = data.map((row) => WatchItem.fromMap(row)).toList();
 
       // Get local items to figure out what is missing
       final localItems = await _db.getAllItems();

@@ -267,19 +267,32 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
                   ),
 
                   // ── BIG YELLOW ACTION BUTTON ──
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
+                  Container(
+                    width: double.infinity, // Optional: makes it stretch full width
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      // 1. If saved, use solid green. If not, color is null.
+                      color: isAlreadySaved ? Colors.green : null,
+                      // 2. If saved, gradient is null. If not, use the golden gradient.
+                      gradient: isAlreadySaved
+                          ? null
+                          : const LinearGradient(
+                        colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                      ),
+                    ),
                     child: FilledButton.icon(
+                      // Your onPressed and icon/label go here
                       onPressed: isAlreadySaved ? null : _addToWatchlist,
-                      icon: Icon(isAlreadySaved ? Icons.check : Icons.add, color: isAlreadySaved ? Colors.white : Colors.black),
+                      icon: Icon(isAlreadySaved ? Icons.check : Icons.add, color: Colors.black),
                       label: Text(
                         isAlreadySaved ? 'In Your Watchlist' : 'Add to Watchlist',
-                        style: TextStyle(color: isAlreadySaved ? Colors.white : Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
                       ),
                       style: FilledButton.styleFrom(
-                        backgroundColor: isAlreadySaved ? Colors.green : const Color(0xFFFFD700),
-                        disabledBackgroundColor: Colors.green.withOpacity(0.6),
+                        // 3. Make the button itself transparent so the Container shows through!
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent, // Removes weird double-shadows
+                        disabledBackgroundColor: Colors.transparent, // Keeps it clean when disabled
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                       ),
