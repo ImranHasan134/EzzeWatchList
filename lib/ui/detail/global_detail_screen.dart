@@ -10,8 +10,9 @@ import '../../data/network/tmdb_service.dart';
 
 class GlobalDetailScreen extends StatefulWidget {
   final Map<String, dynamic> item;
+  final String heroTag; // ── 🆕 UNIQUE HERO TAG PARAMETER ──
 
-  const GlobalDetailScreen({super.key, required this.item});
+  const GlobalDetailScreen({super.key, required this.item, required this.heroTag});
 
   @override
   State<GlobalDetailScreen> createState() => _GlobalDetailScreenState();
@@ -69,7 +70,6 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
   }
 
   Future<void> _fetchExtraDetails() async {
-    // ── 🆕 SAFE FALLBACK TAG CHECK ──
     final tmdbId = widget.item['tmdbId'] ?? widget.item['id'];
     if (tmdbId == null) {
       if (mounted) setState(() => _isLoading = false);
@@ -213,17 +213,15 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── 🆕 FLAWLESS HERO TAG ──
+                        // ── 🆕 PERFECT HERO TAG MATCH ──
                         Hero(
-                          tag: 'hero_poster_${item['tmdbId'] ?? item['id']}',
+                          tag: widget.heroTag,
                           child: Container(
                             width: 120,
                             height: 180,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))
-                              ],
+                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))],
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(12),
@@ -430,9 +428,10 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
                           itemCount: _similarContent.length,
                           itemBuilder: (context, index) {
                             final similarItem = _similarContent[index];
+                            final uniqueSimilarTag = 'similar_${similarItem['tmdbId'] ?? similarItem['id']}';
                             return GestureDetector(
                               onTap: () {
-                                Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: similarItem)));
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: similarItem, heroTag: uniqueSimilarTag)));
                               },
                               child: Container(
                                 width: 110,
@@ -441,11 +440,14 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Expanded(
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: similarItem['posterPath'] != null
-                                            ? CachedNetworkImage(imageUrl: similarItem['posterPath'], fit: BoxFit.cover, width: double.infinity)
-                                            : Container(color: Colors.grey.shade900, child: const Icon(Icons.movie, color: Colors.white24)),
+                                      child: Hero(
+                                        tag: uniqueSimilarTag,
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(12),
+                                          child: similarItem['posterPath'] != null
+                                              ? CachedNetworkImage(imageUrl: similarItem['posterPath'], fit: BoxFit.cover, width: double.infinity)
+                                              : Container(color: Colors.grey.shade900, child: const Icon(Icons.movie, color: Colors.white24)),
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(height: 8),
@@ -463,7 +465,6 @@ class _GlobalDetailScreenState extends State<GlobalDetailScreen> {
                         ),
                       ),
                     ],
-
                     const SizedBox(height: 80),
                   ],
                 ),

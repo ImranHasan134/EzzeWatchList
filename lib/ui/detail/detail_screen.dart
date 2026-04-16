@@ -14,7 +14,9 @@ import '../add_edit/add_edit_screen.dart';
 
 class DetailScreen extends StatefulWidget {
   final int itemId;
-  const DetailScreen({super.key, required this.itemId});
+  final String heroTag; // ── 🆕 UNIQUE HERO TAG PARAMETER ──
+
+  const DetailScreen({super.key, required this.itemId, required this.heroTag});
 
   @override
   State<DetailScreen> createState() => _DetailScreenState();
@@ -47,11 +49,9 @@ class _DetailScreenState extends State<DetailScreen> {
     super.dispose();
   }
 
-  // ── FLAWLESS EXIT INTERCEPTOR ──
   void _handlePop() {
     if (_isPlayingTrailer) {
       setState(() => _isPlayingTrailer = false);
-      // Give Flutter 60ms to completely unmount the Webview before starting the Hero animation
       Future.delayed(const Duration(milliseconds: 60), () {
         if (mounted && Navigator.canPop(context)) {
           Navigator.pop(context);
@@ -237,8 +237,9 @@ class _DetailScreenState extends State<DetailScreen> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // ── 🆕 PERFECT HERO TAG MATCH ──
                         Hero(
-                          tag: 'hero_poster_${item.tmdbId ?? item.id}',
+                          tag: widget.heroTag,
                           child: Container(
                             width: 110,
                             height: 165,
@@ -377,7 +378,6 @@ class _DetailScreenState extends State<DetailScreen> {
                       const Text('AVAILABLE ON', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
                       const SizedBox(height: 12),
                       InkWell(
-                        // ── 🆕 RESTORED SNACKBAR LOGIC ──
                         onTap: () async {
                           if (item.showLink == null || item.showLink!.trim().isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(

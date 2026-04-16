@@ -62,11 +62,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
     super.dispose();
   }
 
-  // ── 🆕 FIXED: NATIVE MATERIAL ROUTE FOR HERO AND SWIPE-BACK ──
-  void _navigateToDetail(BuildContext context, Map<String, dynamic> item) {
+  // ── 🆕 FIXED: USES NATIVE MATERIAL ROUTE ──
+  void _navigateToDetail(BuildContext context, Map<String, dynamic> item, String heroTag) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item)),
+      MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item, heroTag: heroTag)),
     );
   }
 
@@ -243,7 +243,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)))
               : GridView.builder(
             physics: const BouncingScrollPhysics(),
-            // ── 🆕 FIXED: 100px PADDING FOR THE BOTTOM DOCK ──
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
@@ -309,7 +308,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     return GridView.builder(
       physics: const BouncingScrollPhysics(),
-      // ── 🆕 FIXED: 100px PADDING FOR THE BOTTOM DOCK ──
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
@@ -351,22 +349,24 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  Widget _buildPosterCard(Map<String, dynamic> item, bool isDark, String tag) {
+  Widget _buildPosterCard(Map<String, dynamic> item, bool isDark, String tagPrefix) {
+    // ── 🆕 UNIQUE HERO TAG ──
+    final uniqueTag = 'explore_${tagPrefix}_${item['tmdbId'] ?? item['id']}';
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
           _searchFocus.unfocus();
-          _navigateToDetail(context, item);
+          _navigateToDetail(context, item, uniqueTag);
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              // ── 🆕 FLAWLESS HERO TAG ──
               child: Hero(
-                tag: 'hero_poster_${item['tmdbId'] ?? item['id']}',
+                tag: uniqueTag,
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(

@@ -48,11 +48,11 @@ class _WatchlistScreenState extends State<WatchlistScreen> with SingleTickerProv
     super.dispose();
   }
 
-  // ── 🆕 FIXED: USES NATIVE MATERIAL ROUTE FOR FLAWLESS HERO & SWIPE-BACK ──
-  void _navigateToDetail(BuildContext context, int itemId) {
+  // ── 🆕 FIXED: USES NATIVE MATERIAL ROUTE ──
+  void _navigateToDetail(BuildContext context, int itemId, String heroTag) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => DetailScreen(itemId: itemId)),
+      MaterialPageRoute(builder: (_) => DetailScreen(itemId: itemId, heroTag: heroTag)),
     );
   }
 
@@ -216,7 +216,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> with SingleTickerProv
 class _WatchListTab extends StatelessWidget {
   final String status;
   final String selectedCategory;
-  final Function(BuildContext, int) onNavigate;
+  final void Function(BuildContext, int, String) onNavigate; // ── 🆕 UPDATED SIGNATURE ──
 
   const _WatchListTab({required this.status, required this.selectedCategory, required this.onNavigate});
 
@@ -260,15 +260,17 @@ class _WatchListTab extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
+        // ── 🆕 UNIQUE HERO TAG ──
+        final uniqueTag = 'watchlist_${status}_${item.tmdbId ?? item.id}';
+
         return GestureDetector(
-          onTap: () => onNavigate(context, item.id!),
+          onTap: () => onNavigate(context, item.id!, uniqueTag),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                // ── 🆕 FLAWLESS HERO TAG ──
                 child: Hero(
-                  tag: 'hero_poster_${item.tmdbId ?? item.id}',
+                  tag: uniqueTag,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
@@ -393,6 +395,9 @@ class _RouletteDialogState extends State<_RouletteDialog> {
   }
 
   Widget _buildResultState(BuildContext context) {
+    // ── 🆕 UNIQUE HERO TAG FOR ROULETTE ──
+    final uniqueRouletteTag = 'roulette_${widget.item.tmdbId ?? widget.item.id}';
+
     return Column(
       key: const ValueKey('result'),
       mainAxisSize: MainAxisSize.min,
@@ -403,7 +408,7 @@ class _RouletteDialogState extends State<_RouletteDialog> {
         ),
         const SizedBox(height: 20),
         Hero(
-          tag: 'hero_poster_${widget.item.tmdbId ?? widget.item.id}',
+          tag: uniqueRouletteTag,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: Container(
@@ -440,7 +445,8 @@ class _RouletteDialogState extends State<_RouletteDialog> {
             ),
             onPressed: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(itemId: widget.item.id!)));
+              // Pass the tag to the Detail Screen
+              Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(itemId: widget.item.id!, heroTag: uniqueRouletteTag)));
             },
             child: const Text(
                 'WATCH NOW',

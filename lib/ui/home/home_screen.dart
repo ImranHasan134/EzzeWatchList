@@ -83,11 +83,11 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // ── 🆕 FIXED: USES NATIVE MATERIAL ROUTE FOR FLAWLESS HERO & SWIPE-BACK ──
-  void _navigateToDetail(BuildContext context, Map<String, dynamic> item) {
+  // ── 🆕 FIXED ROUTING: Passes Unique Tag ──
+  void _navigateToDetail(BuildContext context, Map<String, dynamic> item, String heroTag) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item)),
+      MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item, heroTag: heroTag)),
     );
   }
 
@@ -126,7 +126,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        // ── 🆕 FIXED: ADDED 100px BOTTOM PADDING FOR THE DOCK ──
         padding: const EdgeInsets.only(bottom: 100),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -161,14 +160,16 @@ class _HomeScreenState extends State<HomeScreen> {
               final imagePath = item['backdropPath'] ?? item['posterPath'];
               final genres = (item['genres'] as List<String>).take(3).join(' • ');
 
+              // ── 🆕 UNIQUE HERO TAG ──
+              final uniqueTag = 'home_hero_${item['tmdbId'] ?? item['id']}';
+
               return GestureDetector(
-                onTap: () => _navigateToDetail(context, item),
+                onTap: () => _navigateToDetail(context, item, uniqueTag),
                 child: Stack(
                   alignment: Alignment.bottomCenter,
                   children: [
-                    // ── 🆕 FLAWLESS HERO TAG ──
                     Hero(
-                      tag: 'hero_poster_${item['tmdbId'] ?? item['id']}',
+                      tag: uniqueTag,
                       child: Container(
                         height: 550,
                         width: double.infinity,
@@ -290,6 +291,10 @@ class _HomeScreenState extends State<HomeScreen> {
             itemCount: items.length,
             itemBuilder: (context, index) {
               final item = items[index];
+
+              // ── 🆕 UNIQUE HERO TAG ──
+              final uniqueTag = 'home_${categoryType}_${item['tmdbId'] ?? item['id']}';
+
               return Container(
                 width: 130,
                 margin: const EdgeInsets.symmetric(horizontal: 6),
@@ -298,13 +303,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(12),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () => _navigateToDetail(context, item),
+                    onTap: () => _navigateToDetail(context, item, uniqueTag),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── 🆕 FLAWLESS HERO TAG ──
                         Hero(
-                          tag: 'hero_poster_${item['tmdbId'] ?? item['id']}',
+                          tag: uniqueTag,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: AspectRatio(

@@ -33,7 +33,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _startExitTimer() async {
     // 1. Wait for the GIF to play out
-    await Future.delayed(const Duration(milliseconds: 3000));
+    await Future.delayed(const Duration(milliseconds: 2800));
 
     if (!mounted) return;
 

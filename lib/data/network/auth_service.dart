@@ -8,12 +8,11 @@ class AuthService {
   static final _supabase = Supabase.instance.client;
   static final String _webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '';
 
-  // ── Email & Password Auth ──────────────────────────────────
   static Future<AuthResponse> signUpWithEmail(String email, String password, String name) async {
     return await _supabase.auth.signUp(
       email: email,
       password: password,
-      data: {'full_name': name}, // Save their name to their profile
+      data: {'full_name': name},
     );
   }
 
@@ -24,7 +23,6 @@ class AuthService {
     );
   }
 
-  // ── Google Auth ────────────────────────────────────────────
   static Future<AuthResponse?> signInWithGoogle() async {
     try {
       final googleSignIn = GoogleSignIn(serverClientId: _webClientId);
@@ -49,9 +47,16 @@ class AuthService {
     }
   }
 
-  // ── Sign Out ───────────────────────────────────────────────
+  // ── 🆕 FIXED: PREVENTS DEADLOCKS ON SIGN OUT ──
   static Future<void> signOut() async {
-    await GoogleSignIn().signOut();
+    try {
+      // Force Google to sign out, but abandon it if it takes longer than 2 seconds
+      await GoogleSignIn().signOut().timeout(const Duration(seconds: 2));
+    } catch (_) {
+      // Silently ignore Google plugin errors so we can still sign out of Supabase
+    }
+
+    // Always successfully sign out of Supabase
     await _supabase.auth.signOut();
   }
 }

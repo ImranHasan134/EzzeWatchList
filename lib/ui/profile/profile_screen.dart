@@ -11,6 +11,7 @@ import '../../utils/backup_service.dart';
 import '../../utils/theme_provider.dart';
 import '../../data/database/db_helper.dart';
 import '../../widgets/custom_header.dart';
+import '../auth/login_screen.dart'; // ── 🆕 NEEDED FOR ROUTING ──
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -23,14 +24,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = false;
 
-  // ── 🆕 PREMIUM GRADIENT ──
   final goldGradient = const LinearGradient(
     colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
   );
 
-  // ── EXISTING LOGIC PRESERVED ────────────────────────────────
   Future<void> _editName() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return;
@@ -116,6 +115,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // ── 🆕 FIXED: FORCE NAVIGATION UPON SIGN OUT ──
+  Future<void> _handleSignOut() async {
+    setState(() => _isLoading = true);
+    try {
+      // Clear local database
+      await DbHelper().clearAllItems();
+      if (mounted) {
+        await context.read<WatchProvider>().loadAll();
+      }
+
+      // Perform Auth SignOut
+      await AuthService.signOut();
+
+      // ── 🆕 EXPLICTLY THROW THEM TO LOGIN SCREEN ──
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+              (Route<dynamic> route) => false, // This destroys the back stack
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error signing out: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -142,7 +171,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
         children: [
-          // ── 🆕 PREMIUM PROFILE CARD ────────────────────────
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -171,10 +199,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     GestureDetector(
                       onTap: _editName,
-                      child: CircleAvatar(
+                      child: const CircleAvatar(
                         radius: 16,
-                        backgroundColor: const Color(0xFFFFD700),
-                        child: const Icon(Icons.edit, size: 16, color: Colors.black),
+                        backgroundColor: Color(0xFFFFD700),
+                        child: Icon(Icons.camera_alt_rounded, size: 16, color: Colors.black),
                       ),
                     ),
                   ],
@@ -194,7 +222,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 24),
 
-          // ── 🆕 STATS GRID ──────────────────────────────────
           Row(
             children: [
               _buildStatCard('Movies', totalMovies.toString(), Icons.movie_filter_rounded, isDark),
@@ -242,18 +269,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           const SizedBox(height: 40),
 
-          // ── 🆕 PREMIUM LOGOUT ──────────────────────────────
+          // ── 🆕 CALLS THE FIXED SIGNOUT LOGIC ──
           SizedBox(
             width: double.infinity,
             child: TextButton.icon(
-              onPressed: () async {
-                setState(() => _isLoading = true);
-                await DbHelper().clearAllItems();
-                if (context.mounted) {
-                  await context.read<WatchProvider>().loadAll();
-                }
-                await AuthService.signOut();
-              },
+              onPressed: _handleSignOut,
               icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
               label: const Text('Sign Out', style: TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold)),
               style: TextButton.styleFrom(
@@ -263,7 +283,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 40),
         ],
       ),
     );

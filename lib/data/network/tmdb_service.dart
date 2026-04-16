@@ -1,6 +1,7 @@
 // lib/data/network/tmdb_service.dart
 
 import 'dart:convert';
+import 'dart:async'; // ── 🆕 REQUIRED FOR TIMEOUTS ──
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -26,7 +27,7 @@ class TmdbService {
   static final String _apiKey = dotenv.env['TMDB_API_KEY'] ?? '';
   static const String _baseUrl = 'https://api.themoviedb.org/3';
   static const String _imgW500 = 'https://image.tmdb.org/t/p/w500';
-  static const String _imgW1280 = 'https://image.tmdb.org/t/p/w1280'; // 🆕 High Res for Banners
+  static const String _imgW1280 = 'https://image.tmdb.org/t/p/w1280';
 
   static const Map<int, String> _genreMap = {
     28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime',
@@ -60,7 +61,7 @@ class TmdbService {
       'description': item['overview'] ?? '',
       'rating': (item['vote_average'] as num?)?.toDouble() ?? 0.0,
       'posterPath': posterPath != null ? '$_imgW500$posterPath' : null,
-      'backdropPath': backdropPath != null ? '$_imgW1280$backdropPath' : null, // 🔴 Requesting 1280px wide image!
+      'backdropPath': backdropPath != null ? '$_imgW1280$backdropPath' : null,
       'category': category,
       'genres': genres,
       'tmdbId': item['id'],
@@ -72,7 +73,8 @@ class TmdbService {
     if (query.trim().isEmpty) return [];
     final url = Uri.parse('$_baseUrl/search/multi?api_key=$_apiKey&query=${Uri.encodeComponent(query)}');
     try {
-      final response = await http.get(url);
+      // ── 🆕 FIXED: 10 SECOND TIMEOUT ──
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
@@ -82,20 +84,20 @@ class TmdbService {
     return [];
   }
 
-  // ── 🆕 HOME SCREEN FEEDS ─────────────────────────────────────
+  // ── HOME SCREEN FEEDS ─────────────────────────────────────
   Future<List<Map<String, dynamic>>> getTrending({int page = 1}) async =>
       _fetchList('$_baseUrl/trending/all/day?api_key=$_apiKey&page=$page');
   Future<List<Map<String, dynamic>>> getPopularMovies({int page = 1}) async =>
       _fetchList('$_baseUrl/movie/popular?api_key=$_apiKey&page=$page', fallbackType: 'movie');
-
   Future<List<Map<String, dynamic>>> getTopRatedShows({int page = 1}) async =>
       _fetchList('$_baseUrl/tv/top_rated?api_key=$_apiKey&page=$page', fallbackType: 'tv');
-
   Future<List<Map<String, dynamic>>> getAnime({int page = 1}) async =>
       _fetchList('$_baseUrl/discover/tv?api_key=$_apiKey&with_genres=16&with_original_language=ja&page=$page', fallbackType: 'tv');
+
   Future<List<Map<String, dynamic>>> _fetchList(String urlStr, {String fallbackType = 'movie'}) async {
     try {
-      final response = await http.get(Uri.parse(urlStr));
+      // ── 🆕 FIXED: 10 SECOND TIMEOUT ──
+      final response = await http.get(Uri.parse(urlStr)).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
@@ -109,7 +111,8 @@ class TmdbService {
   Future<Map<String, int>> getTvSeasonEpisode(int tvId) async {
     final url = Uri.parse('$_baseUrl/tv/$tvId?api_key=$_apiKey');
     try {
-      final response = await http.get(url);
+      // ── 🆕 FIXED: 10 SECOND TIMEOUT ──
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return {'seasons': data['number_of_seasons'] as int? ?? 0, 'episodes': data['number_of_episodes'] as int? ?? 0};
@@ -122,7 +125,8 @@ class TmdbService {
     final type = isMovie ? 'movie' : 'tv';
     final url = Uri.parse('$_baseUrl/$type/$tmdbId/videos?api_key=$_apiKey');
     try {
-      final response = await http.get(url);
+      // ── 🆕 FIXED: 10 SECOND TIMEOUT ──
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
@@ -137,7 +141,8 @@ class TmdbService {
     final type = isMovie ? 'movie' : 'tv';
     final url = Uri.parse('$_baseUrl/$type/$tmdbId/credits?api_key=$_apiKey');
     try {
-      final response = await http.get(url);
+      // ── 🆕 FIXED: 10 SECOND TIMEOUT ──
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List cast = data['cast'] ?? [];
@@ -147,15 +152,13 @@ class TmdbService {
     return [];
   }
 
-  // ── 🆕 FETCH SIMILAR CONTENT ─────────────────────────────────────
+  // ── FETCH SIMILAR CONTENT ─────────────────────────────────────
   Future<List<Map<String, dynamic>>> getSimilar(int tmdbId, bool isMovie) async {
     final type = isMovie ? 'movie' : 'tv';
-    // TMDB has a specific endpoint for this!
     return _fetchList('$_baseUrl/$type/$tmdbId/similar?api_key=$_apiKey', fallbackType: type);
   }
 
-
-  // ── 🆕 DYNAMIC DISCOVER (For Explore Screen) ──────────────────
+  // ── DYNAMIC DISCOVER (For Explore Screen) ──────────────────
   Future<List<Map<String, dynamic>>> discoverMovies({int? genreId, String sortBy = 'popularity.desc', int page = 1}) async {
     String urlStr = '$_baseUrl/discover/movie?api_key=$_apiKey&sort_by=$sortBy&page=$page';
     if (genreId != null) {
@@ -163,5 +166,4 @@ class TmdbService {
     }
     return _fetchList(urlStr, fallbackType: 'movie');
   }
-
 }

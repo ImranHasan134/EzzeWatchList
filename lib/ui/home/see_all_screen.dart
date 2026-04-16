@@ -52,21 +52,11 @@ class _SeeAllScreenState extends State<SeeAllScreen> {
     };
   }
 
-  // ── 🆕 SMOOTH ROUTE TRANSITION (Matches Home Screen) ──
-  void _navigateToDetail(BuildContext context, Map<String, dynamic> item) {
+  // ── 🆕 FIXED ROUTING: Passes Unique Tag and Uses MaterialPageRoute ──
+  void _navigateToDetail(BuildContext context, Map<String, dynamic> item, String heroTag) {
     Navigator.push(
       context,
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 400),
-        reverseTransitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (context, animation, secondaryAnimation) => GlobalDetailScreen(item: item),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-            child: child,
-          );
-        },
-      ),
+      MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item, heroTag: heroTag)),
     );
   }
 
@@ -81,17 +71,17 @@ class _SeeAllScreenState extends State<SeeAllScreen> {
         title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
         backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
         elevation: 0,
-        scrolledUnderElevation: 0, // Prevents the app bar from changing color when scrolling
+        scrolledUnderElevation: 0,
         iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)))
           : GridView.builder(
-        physics: const BouncingScrollPhysics(), // 🆕 Smooth iOS-style bounce
-        padding: const EdgeInsets.all(16), // Slightly wider padding for breathing room
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.all(16),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
-          childAspectRatio: 0.58, // Adjusted to give the title more breathing room below
+          childAspectRatio: 0.58,
           crossAxisSpacing: 12,
           mainAxisSpacing: 20,
         ),
@@ -99,18 +89,21 @@ class _SeeAllScreenState extends State<SeeAllScreen> {
         itemBuilder: (context, index) {
           final item = _items[index];
 
+          // ── 🆕 UNIQUE HERO TAG (Matches HomeScreen logic) ──
+          final uniqueTag = 'home_${widget.categoryType}_${item['tmdbId'] ?? item['id']}';
+
           return Material(
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
-              onTap: () => _navigateToDetail(context, item),
+              onTap: () => _navigateToDetail(context, item, uniqueTag),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── 🆕 HERO WIDGET ──
+                  // ── 🆕 SYNCHRONIZED HERO WIDGET ──
                   Expanded(
                     child: Hero(
-                      tag: 'hero_${widget.categoryType}_${item['id'] ?? index}',
+                      tag: uniqueTag,
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: item['posterPath'] != null && item['posterPath'].toString().isNotEmpty
@@ -133,7 +126,7 @@ class _SeeAllScreenState extends State<SeeAllScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Text(
                       item['title'] ?? 'Unknown',
-                      maxLines: 2, // Allow 2 lines so long titles don't cut off awkwardly
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, height: 1.2),
                     ),
