@@ -1,0 +1,10 @@
+flutter_native_splash:
+  # This makes the native OS splash screen purely black to match your custom one
+  color: "#0E0E0E"
+  color_dark: "#0E0E0E"
+
+  # Set this to false so the native Android 12 icon wrapper doesn't show up
+  android_12:
+    color: "#0E0E0E"
+    color_dark: "#0E0E0E"
+    # We leave the image empty or commented out so it's just a blank dark canvas
