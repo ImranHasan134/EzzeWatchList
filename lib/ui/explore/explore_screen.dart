@@ -18,7 +18,6 @@ class ExploreScreen extends StatefulWidget {
 class _ExploreScreenState extends State<ExploreScreen> {
   final TmdbService _tmdbService = TmdbService();
 
-  // ── SEARCH STATE ──
   final TextEditingController _searchCtrl = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   Timer? _debounce;
@@ -26,7 +25,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
   List<Map<String, dynamic>> _searchResults = [];
   List<String> _recentSearches = [];
 
-  // ── EXPLORE STATE ──
   bool _isExploreLoading = true;
   List<Map<String, dynamic>> _exploreResults = [];
 
@@ -39,33 +37,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String? _selectedSortName;
 
   final Map<String, int?> _genreOptions = {
-    'Action': 28,
-    'Action & Adventure': 10759,
-    'Adventure': 12,
-    'Animation': 16,
-    'Comedy': 35,
-    'Crime': 80,
-    'Documentary': 99,
-    'Drama': 18,
-    'Family': 10751,
-    'Fantasy': 14,
-    'History': 36,
-    'Horror': 27,
-    'Kids': 10762,
-    'Music': 10402,
-    'Mystery': 9648,
-    'News': 10763,
-    'Reality': 10764,
-    'Romance': 10749,
-    'Sci-Fi': 878,
-    'Sci-Fi & Fantasy': 10765,
-    'Soap': 10766,
-    'Talk': 10767,
-    'Thriller': 53,
-    'TV Movie': 10770,
-    'War': 10752,
-    'War & Politics': 10768,
-    'Western': 37,
+    'Action': 28, 'Action & Adventure': 10759, 'Adventure': 12, 'Animation': 16,
+    'Comedy': 35, 'Crime': 80, 'Documentary': 99, 'Drama': 18, 'Family': 10751,
+    'Fantasy': 14, 'History': 36, 'Horror': 27, 'Kids': 10762, 'Music': 10402,
+    'Mystery': 9648, 'News': 10763, 'Reality': 10764, 'Romance': 10749,
+    'Sci-Fi': 878, 'Sci-Fi & Fantasy': 10765, 'Soap': 10766, 'Talk': 10767,
+    'Thriller': 53, 'TV Movie': 10770, 'War': 10752, 'War & Politics': 10768, 'Western': 37,
   };
   String? _selectedGenreName;
 
@@ -85,25 +62,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
     super.dispose();
   }
 
-  // ── 🆕 SMOOTH ROUTE TRANSITION ──
+  // ── 🆕 FIXED: NATIVE MATERIAL ROUTE FOR HERO AND SWIPE-BACK ──
   void _navigateToDetail(BuildContext context, Map<String, dynamic> item) {
     Navigator.push(
       context,
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 400),
-        reverseTransitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (context, animation, secondaryAnimation) => GlobalDetailScreen(item: item),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-            child: child,
-          );
-        },
-      ),
+      MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item)),
     );
   }
-
-  // ── 🔍 SEARCH LOGIC ──────────────────────────────────────────
 
   Future<void> _loadRecentSearches() async {
     final prefs = await SharedPreferences.getInstance();
@@ -147,8 +112,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
       }
     });
   }
-
-  // ── 🧭 EXPLORE LOGIC ───────────────────────
 
   Future<void> _fetchInitialData() async {
     setState(() => _isExploreLoading = true);
@@ -280,6 +243,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)))
               : GridView.builder(
             physics: const BouncingScrollPhysics(),
+            // ── 🆕 FIXED: 100px PADDING FOR THE BOTTOM DOCK ──
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
@@ -345,7 +309,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     return GridView.builder(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(16),
+      // ── 🆕 FIXED: 100px PADDING FOR THE BOTTOM DOCK ──
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         childAspectRatio: 0.58,
@@ -399,8 +364,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
+              // ── 🆕 FLAWLESS HERO TAG ──
               child: Hero(
-                tag: 'hero_poster_${item['tmdbId']}', // ── 🆕 MATCHES GLOBAL TAG ──
+                tag: 'hero_poster_${item['tmdbId'] ?? item['id']}',
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(

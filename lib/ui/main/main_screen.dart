@@ -2,10 +2,16 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../home/home_screen.dart';
 import '../explore/explore_screen.dart';
 import '../watchlist/watchlist_screen.dart';
 import '../profile/profile_screen.dart';
+
+// ── 🆕 REQUIRED IMPORTS FOR AUTO-SYNC ──
+import '../../data/database/watch_provider.dart';
+import '../../data/network/sync_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -24,7 +30,7 @@ class _MainScreenState extends State<MainScreen> {
     ProfileScreen(),
   ];
 
-  // ── 🆕 SLIMMER NAVBAR DEFINITIONS ──
+  // ── SLIMMER NAVBAR DEFINITIONS ──
   final List<Map<String, dynamic>> _navItems = [
     {'icon': Icons.grid_view_rounded, 'label': 'Home'},
     {'icon': Icons.compass_calibration_rounded, 'label': 'Discover'},
@@ -37,6 +43,30 @@ class _MainScreenState extends State<MainScreen> {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+
+  // ── 🆕 AUTO-SYNC LOGIC ──
+  @override
+  void initState() {
+    super.initState();
+    // Fire off the silent sync as soon as the main screen loads
+    _runInitialSync();
+  }
+
+  Future<void> _runInitialSync() async {
+    try {
+      // 1. Ask Supabase for the cloud data and save it to SQLite silently
+      await SyncService.syncCloudToLocal();
+
+      // 2. Tell the UI to refresh now that the local DB has the data
+      if (mounted) {
+        await context.read<WatchProvider>().loadAll();
+      }
+    } catch (e) {
+      debugPrint('Silent background sync failed: $e');
+      // If it fails (e.g., no internet), the app just silently continues
+      // using whatever is already in the local database.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +82,7 @@ class _MainScreenState extends State<MainScreen> {
         extendBody: true, // Keeps the blur effect overlapping the content
         backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
 
-        // ── 🆕 SMOOTH PAGE TRANSITIONS (PRESERVES STATE) ──
+        // ── SMOOTH PAGE TRANSITIONS (PRESERVES STATE) ──
         body: Stack(
           children: List.generate(_screens.length, (index) {
             final bool isActive = _currentIndex == index;
@@ -73,7 +103,7 @@ class _MainScreenState extends State<MainScreen> {
           }),
         ),
 
-        // ── 🆕 SLIM, SLIDING FLOATING DOCK ──
+        // ── SLIM, SLIDING FLOATING DOCK ──
         bottomNavigationBar: SafeArea(
           child: Container(
             margin: const EdgeInsets.fromLTRB(20, 0, 20, 16), // Tighter margins
@@ -83,7 +113,11 @@ class _MainScreenState extends State<MainScreen> {
               borderRadius: BorderRadius.circular(30),
               border: Border.all(color: isDark ? Colors.white10 : Colors.black12, width: 1),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8)),
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8)
+                ),
               ],
             ),
             child: Row(

@@ -28,7 +28,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _carouselTimer;
   int _currentCarouselIndex = 0;
 
-  // ── 🆕 PREMIUM GRADIENT ──
   final goldGradient = const LinearGradient(
     colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
     begin: Alignment.centerLeft,
@@ -77,29 +76,18 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         _pageController.animateToPage(
           nextIndex,
-          duration: const Duration(milliseconds: 900), // Slightly slower for cinematic feel
+          duration: const Duration(milliseconds: 900),
           curve: Curves.fastOutSlowIn,
         );
       }
     });
   }
 
-  // ── 🆕 SMOOTH ROUTE TRANSITION ──
+  // ── 🆕 FIXED: USES NATIVE MATERIAL ROUTE FOR FLAWLESS HERO & SWIPE-BACK ──
   void _navigateToDetail(BuildContext context, Map<String, dynamic> item) {
     Navigator.push(
       context,
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 400),
-        reverseTransitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (context, animation, secondaryAnimation) => GlobalDetailScreen(item: item),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          // Premium Fade Transition
-          return FadeTransition(
-            opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-            child: child,
-          );
-        },
-      ),
+      MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item)),
     );
   }
 
@@ -119,31 +107,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: bgColor,
-      // ── 🆕 EDGE-TO-EDGE UI ──
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: Colors.transparent, // Let the movie image show through
+        backgroundColor: Colors.transparent,
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withOpacity(0.8),
-                Colors.transparent,
-              ],
+              colors: [Colors.black.withOpacity(0.8), Colors.transparent],
             ),
           ),
         ),
         centerTitle: false,
         title: const CustomHeader(title: 'Home', subtitle: 'What to watch today'),
       ),
-
       body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(), // 🆕 Smooth iOS-style bounce
-        padding: const EdgeInsets.only(bottom: 40),
+        physics: const BouncingScrollPhysics(),
+        // ── 🆕 FIXED: ADDED 100px BOTTOM PADDING FOR THE DOCK ──
+        padding: const EdgeInsets.only(bottom: 100),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -164,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (topItems.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 550, // Slightly taller for more visual impact
+      height: 550,
       child: Stack(
         children: [
           PageView.builder(
@@ -182,9 +166,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Stack(
                   alignment: Alignment.bottomCenter,
                   children: [
-                    // ── 🆕 HERO WIDGET ──
+                    // ── 🆕 FLAWLESS HERO TAG ──
                     Hero(
-                      tag: 'hero_carousel_${item['id'] ?? index}',
+                      tag: 'hero_poster_${item['tmdbId'] ?? item['id']}',
                       child: Container(
                         height: 550,
                         width: double.infinity,
@@ -217,8 +201,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.black45, // Better contrast
-                              borderRadius: BorderRadius.circular(20), // Pill shape
+                              color: Colors.black45,
+                              borderRadius: BorderRadius.circular(20),
                               border: Border.all(color: const Color(0xFFFFD700), width: 1.5),
                             ),
                             child: Text(
@@ -245,7 +229,6 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          // ── PREMIUM DOT INDICATORS ──
           Positioned(
             bottom: 16,
             left: 0,
@@ -258,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOutCubic,
                   margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: isActive ? 24 : 8, // Wider active dot
+                  width: isActive ? 24 : 8,
                   height: 8,
                   decoration: BoxDecoration(
                     gradient: isActive ? goldGradient : null,
@@ -292,11 +275,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (_) => SeeAllScreen(title: title, categoryType: categoryType),
                   ));
                 },
-                style: TextButton.styleFrom(splashFactory: NoSplash.splashFactory), // Cleaner look
-                child: const Text(
-                  'See all',
-                  style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
-                ),
+                style: TextButton.styleFrom(splashFactory: NoSplash.splashFactory),
+                child: const Text('See all', style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -305,7 +285,7 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 260,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(), // 🆕 Smooth scrolling
+            physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: items.length,
             itemBuilder: (context, index) {
@@ -313,7 +293,6 @@ class _HomeScreenState extends State<HomeScreen> {
               return Container(
                 width: 130,
                 margin: const EdgeInsets.symmetric(horizontal: 6),
-                // ── 🆕 INTERACTIVE MATERIAL WRAPPER ──
                 child: Material(
                   color: Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
@@ -323,9 +302,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── 🆕 HERO WIDGET ──
+                        // ── 🆕 FLAWLESS HERO TAG ──
                         Hero(
-                          tag: 'hero_${categoryType}_${item['id'] ?? index}',
+                          tag: 'hero_poster_${item['tmdbId'] ?? item['id']}',
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: AspectRatio(

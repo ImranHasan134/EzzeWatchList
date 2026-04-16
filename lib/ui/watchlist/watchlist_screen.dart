@@ -48,16 +48,11 @@ class _WatchlistScreenState extends State<WatchlistScreen> with SingleTickerProv
     super.dispose();
   }
 
+  // ── 🆕 FIXED: USES NATIVE MATERIAL ROUTE FOR FLAWLESS HERO & SWIPE-BACK ──
   void _navigateToDetail(BuildContext context, int itemId) {
     Navigator.push(
       context,
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 400),
-        pageBuilder: (context, animation, secondaryAnimation) => DetailScreen(itemId: itemId),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-      ),
+      MaterialPageRoute(builder: (_) => DetailScreen(itemId: itemId)),
     );
   }
 
@@ -190,9 +185,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> with SingleTickerProv
             _WatchListTab(status: WatchStatus.planned, selectedCategory: _selectedCategory, onNavigate: _navigateToDetail),
           ],
         ),
-        // ── 🆕 FIXED: PUSHED FAB UP TO AVOID DOCK COLLISION ──
         floatingActionButton: Padding(
-          padding: const EdgeInsets.only(bottom: 80.0), // Adds space for the new nav bar
+          padding: const EdgeInsets.only(bottom: 80.0),
           child: Container(
             decoration: BoxDecoration(
               gradient: goldGradient,
@@ -255,7 +249,6 @@ class _WatchListTab extends StatelessWidget {
     }
 
     return GridView.builder(
-      // ── 🆕 FIXED: INCREASED BOTTOM PADDING TO 120 ──
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
       physics: const BouncingScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -273,8 +266,9 @@ class _WatchListTab extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
+                // ── 🆕 FLAWLESS HERO TAG ──
                 child: Hero(
-                  tag: 'hero_poster_${item.tmdbId}',
+                  tag: 'hero_poster_${item.tmdbId ?? item.id}',
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
@@ -409,7 +403,7 @@ class _RouletteDialogState extends State<_RouletteDialog> {
         ),
         const SizedBox(height: 20),
         Hero(
-          tag: 'hero_poster_${widget.item.tmdbId}',
+          tag: 'hero_poster_${widget.item.tmdbId ?? widget.item.id}',
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: Container(
