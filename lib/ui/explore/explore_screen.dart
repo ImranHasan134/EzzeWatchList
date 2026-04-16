@@ -38,44 +38,28 @@ class _ExploreScreenState extends State<ExploreScreen> {
   };
   String? _selectedSortName;
 
-  // ── FULL GENRE LIST ──
   final Map<String, int?> _genreOptions = {
     'Action': 28,
     'Action & Adventure': 10759,
     'Adventure': 12,
     'Animation': 16,
-    'Avant Garde': null,
-    'Award Winning': null,
-    'Boys Love': null,
     'Comedy': 35,
     'Crime': 80,
     'Documentary': 99,
     'Drama': 18,
-    'Ecchi': null,
     'Family': 10751,
     'Fantasy': 14,
-    'Girls Love': null,
-    'Gourmet': null,
     'History': 36,
     'Horror': 27,
-    'Isekai': null,
     'Kids': 10762,
-    'Magic': null,
-    'Martial Arts': null,
-    'Mecha': null,
     'Music': 10402,
     'Mystery': 9648,
     'News': 10763,
-    'Psychological': null,
     'Reality': 10764,
     'Romance': 10749,
     'Sci-Fi': 878,
     'Sci-Fi & Fantasy': 10765,
-    'Slice of Life': null,
     'Soap': 10766,
-    'Sports': null,
-    'Supernatural': null,
-    'Suspense': null,
     'Talk': 10767,
     'Thriller': 53,
     'TV Movie': 10770,
@@ -99,6 +83,24 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _searchCtrl.dispose();
     _searchFocus.dispose();
     super.dispose();
+  }
+
+  // ── 🆕 SMOOTH ROUTE TRANSITION ──
+  void _navigateToDetail(BuildContext context, Map<String, dynamic> item) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 400),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) => GlobalDetailScreen(item: item),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            child: child,
+          );
+        },
+      ),
+    );
   }
 
   // ── 🔍 SEARCH LOGIC ──────────────────────────────────────────
@@ -126,7 +128,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-
     if (query.trim().isEmpty) {
       setState(() {
         _searchResults.clear();
@@ -134,9 +135,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       });
       return;
     }
-
     setState(() => _isSearchLoading = true);
-
     _debounce = Timer(const Duration(milliseconds: 500), () async {
       _saveSearch(query.trim());
       final results = await _tmdbService.searchContent(query);
@@ -149,20 +148,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
     });
   }
 
-  // ── 🧭 EXPLORE LOGIC (60 Items) ───────────────────────
+  // ── 🧭 EXPLORE LOGIC ───────────────────────
 
   Future<void> _fetchInitialData() async {
     setState(() => _isExploreLoading = true);
-
     try {
       final results = await Future.wait([
         _tmdbService.getTrending(page: 1),
         _tmdbService.getTrending(page: 2),
         _tmdbService.getTrending(page: 3),
       ]);
-
       final allItems = results.expand((page) => page).toList();
-
       if (mounted) {
         setState(() {
           _exploreResults = allItems;
@@ -179,21 +175,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
       _fetchInitialData();
       return;
     }
-
     setState(() => _isExploreLoading = true);
-
     try {
       final genreId = _genreOptions[_selectedGenreName];
       final sortBy = _sortOptions[_selectedSortName] ?? 'popularity.desc';
-
       final results = await Future.wait([
         _tmdbService.discoverMovies(genreId: genreId, sortBy: sortBy, page: 1),
         _tmdbService.discoverMovies(genreId: genreId, sortBy: sortBy, page: 2),
         _tmdbService.discoverMovies(genreId: genreId, sortBy: sortBy, page: 3),
       ]);
-
       final allItems = results.expand((page) => page).toList();
-
       if (mounted) {
         setState(() {
           _exploreResults = allItems;
@@ -205,45 +196,41 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
-  // ── 📱 UI RENDERING ──────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E0E0E) : const Color(0xFFF5F5F5),
-
-      // ── THE FIXED APP BAR ──
+      backgroundColor: bgColor,
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
         centerTitle: false,
         title: const CustomHeader(title: 'Explore', subtitle: 'Discover new favorites'),
-
-        // Push the Search text field down below the title
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(65),
+          preferredSize: const Size.fromHeight(70),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
             child: Container(
-              height: 45,
+              height: 50,
               decoration: BoxDecoration(
-                color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
+                color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
               ),
               child: TextField(
                 controller: _searchCtrl,
                 focusNode: _searchFocus,
-                style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 16),
+                style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 16, fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
-                  hintText: 'Search or explore...',
-                  hintStyle: const TextStyle(color: Colors.grey),
-                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                  hintText: 'Movies, shows or anime...',
+                  hintStyle: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
+                  prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFFFFD700), size: 22),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
-                    icon: const Icon(Icons.clear, size: 20),
+                    icon: const Icon(Icons.cancel_rounded, size: 20, color: Colors.grey),
                     onPressed: () {
                       _searchCtrl.clear();
                       _onSearchChanged('');
@@ -252,7 +239,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   )
                       : null,
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 onChanged: _onSearchChanged,
               ),
@@ -260,8 +247,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
         ),
       ),
-
-      // ── THE BODY ──
       body: _buildDynamicBody(isDark),
     );
   }
@@ -284,6 +269,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           setState(() => _selectedSortName = (_selectedSortName == selected) ? null : selected);
           _fetchFilteredData();
         }, isDark),
+        const SizedBox(height: 8),
         _buildFilterRow(_genreOptions.keys.toList(), _selectedGenreName, (selected) {
           setState(() => _selectedGenreName = (_selectedGenreName == selected) ? null : selected);
           _fetchFilteredData();
@@ -293,12 +279,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
           child: _isExploreLoading
               ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)))
               : GridView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, childAspectRatio: 0.6, crossAxisSpacing: 10, mainAxisSpacing: 16,
+              crossAxisCount: 3,
+              childAspectRatio: 0.58,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 20,
             ),
             itemCount: _exploreResults.length,
-            itemBuilder: (context, index) => _buildPosterCard(_exploreResults[index], isDark),
+            itemBuilder: (context, index) => _buildPosterCard(_exploreResults[index], isDark, 'explore'),
           ),
         ),
       ],
@@ -311,30 +301,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.manage_search, size: 80, color: isDark ? Colors.white12 : Colors.black12),
+            Icon(Icons.search_off_rounded, size: 80, color: isDark ? Colors.white12 : Colors.black12),
             const SizedBox(height: 16),
-            Text('Type to search for movies or anime', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 16)),
+            Text('Looking for something specific?', style: TextStyle(color: isDark ? Colors.white38 : Colors.black38, fontSize: 16, fontWeight: FontWeight.w500)),
           ],
         ),
       );
     }
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.all(20),
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Recent Searches', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton(onPressed: _clearRecentSearches, child: const Text('Clear All', style: TextStyle(color: Colors.redAccent))),
+            const Text('Recent Searches', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.3)),
+            TextButton(
+                onPressed: _clearRecentSearches,
+                child: const Text('Clear All', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))
+            ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         ..._recentSearches.map((query) => ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.history, color: Colors.grey),
-          title: Text(query, style: const TextStyle(fontSize: 16)),
-          trailing: const Icon(Icons.north_west, size: 16, color: Colors.grey),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          leading: const Icon(Icons.history_rounded, color: Colors.grey, size: 22),
+          title: Text(query, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+          trailing: const Icon(Icons.north_west_rounded, size: 18, color: Colors.grey),
           onTap: () {
             _searchCtrl.text = query;
             _searchCtrl.selection = TextSelection.fromPosition(TextPosition(offset: query.length));
@@ -347,24 +341,29 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Widget _buildSearchResults(bool isDark) {
     if (_isSearchLoading) return const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)));
-    if (_searchResults.isEmpty) return const Center(child: Text('No results found.'));
+    if (_searchResults.isEmpty) return const Center(child: Text('No results found.', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.grey)));
 
     return GridView.builder(
-      padding: const EdgeInsets.all(12),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3, childAspectRatio: 0.55, crossAxisSpacing: 10, mainAxisSpacing: 16,
+        crossAxisCount: 3,
+        childAspectRatio: 0.58,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 20,
       ),
       itemCount: _searchResults.length,
-      itemBuilder: (context, index) => _buildPosterCard(_searchResults[index], isDark),
+      itemBuilder: (context, index) => _buildPosterCard(_searchResults[index], isDark, 'search'),
     );
   }
 
   Widget _buildFilterRow(List<String> options, String? selectedValue, Function(String) onSelect, bool isDark) {
     return SizedBox(
-      height: 45,
+      height: 40,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: options.length,
         itemBuilder: (context, index) {
           final option = options[index];
@@ -372,13 +371,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              label: Text(option, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.black : (isDark ? Colors.white70 : Colors.black87))),
+              label: Text(option, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? Colors.black : (isDark ? Colors.white70 : Colors.black87))),
               selected: isSelected,
               onSelected: (_) => onSelect(option),
               selectedColor: const Color(0xFFFFD700),
-              backgroundColor: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+              backgroundColor: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
               side: BorderSide(color: isSelected ? const Color(0xFFFFD700) : Colors.transparent),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               showCheckmark: false,
             ),
           );
@@ -387,37 +386,71 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  Widget _buildPosterCard(Map<String, dynamic> item, bool isDark) {
-    return GestureDetector(
-      onTap: () {
-        _searchFocus.unfocus();
-        Navigator.push(context, MaterialPageRoute(builder: (_) => GlobalDetailScreen(item: item)));
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: isDark ? Colors.grey.shade900 : Colors.grey.shade300),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: item['posterPath'] != null
-                    ? CachedNetworkImage(imageUrl: item['posterPath'], fit: BoxFit.cover)
-                    : const Center(child: Icon(Icons.movie, color: Colors.white54)),
+  Widget _buildPosterCard(Map<String, dynamic> item, bool isDark, String tag) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          _searchFocus.unfocus();
+          _navigateToDetail(context, item);
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Hero(
+                tag: 'hero_poster_${item['tmdbId']}', // ── 🆕 MATCHES GLOBAL TAG ──
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: item['posterPath'] != null
+                        ? CachedNetworkImage(
+                      imageUrl: item['posterPath'],
+                      fit: BoxFit.cover,
+                      fadeInDuration: const Duration(milliseconds: 300),
+                    )
+                        : const Center(child: Icon(Icons.movie_filter_rounded, color: Colors.white24, size: 30)),
+                  ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(item['title'] ?? 'Unknown', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-          Row(
-            children: [
-              const Icon(Icons.star, color: Color(0xFFFFD700), size: 12),
-              const SizedBox(width: 4),
-              Text((item['rating'] as num?)?.toStringAsFixed(1) ?? '0.0', style: TextStyle(fontSize: 10, color: isDark ? Colors.white70 : Colors.black54)),
-            ],
-          )
-        ],
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item['title'] ?? 'Unknown',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.2),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        (item['rating'] as num?)?.toStringAsFixed(1) ?? '0.0',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white54 : Colors.black54),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
