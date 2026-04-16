@@ -7,12 +7,8 @@
 
 > A premium, highly polished personal movie & series watchlist tracker built with **Flutter** and **Dart**. Keep track of your cinematic journey with beautiful UI, robust local storage, and seamless animations.
 
----
-
-## 📸 App Preview
-
 <p align="center">
-  <img src="assets/icon/splash.gif" alt="EzzeWatchList Splash Animation" width="280"/>
+  <img src="assets/icon/splash.gif" alt="EzzeWatchList Splash Animation" width="480"/>
 </p>
 
 ---
